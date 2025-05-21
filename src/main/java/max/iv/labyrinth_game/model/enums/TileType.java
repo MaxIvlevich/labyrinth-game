@@ -1,4 +1,4 @@
-package max.iv.labyrinth_game.model;
+package max.iv.labyrinth_game.model.enums;
 
 public enum TileType {
     STRAIGHT, // Прямой
