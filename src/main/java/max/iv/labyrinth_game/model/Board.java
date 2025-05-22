@@ -39,7 +39,7 @@ public class Board {
 
     // Метод для проверки, находится ли ячейка в пределах поля
     public boolean isValidCoordinate(int x, int y) {
-        return x >= 0 && x < size && y >= 0 && y < size;
+        return x < 0 || x >= size || y < 0 || y >= size;
     }
     public List<Cell> getAllCells() {
         List<Cell> allCells = new ArrayList<>();
@@ -50,5 +50,4 @@ public class Board {
         }
         return allCells;
     }
-
 }
