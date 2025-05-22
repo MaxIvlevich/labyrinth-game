@@ -26,4 +26,11 @@ public enum Direction {
             default -> 0;
         };
     }
+    public boolean isHorizontal() {
+        return this == EAST || this == WEST;
+    }
+
+    public boolean isVertical() {
+        return this == NORTH || this == SOUTH;
+    }
 }

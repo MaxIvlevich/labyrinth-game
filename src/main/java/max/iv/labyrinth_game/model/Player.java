@@ -59,4 +59,13 @@ public class Player {
     public void updateBase(Base newBase) {
         this.base = newBase;
     }
+
+    public boolean hasShiftedThisTurn() {
+        return this.hasShiftedThisTurn;
+    }
+
+    public void moveTo(int moveToX, int moveToY) {
+        this.currentX = moveToX;
+        this.currentY = moveToY;
+    }
 }
