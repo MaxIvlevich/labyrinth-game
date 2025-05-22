@@ -165,8 +165,6 @@ public class GameService {
             log.info("Player {} (ID: {}) WON the game in room {}!",
                     currentPlayer.getName(), context.getPlayerId(), room.getRoomId());
 
-            // Важно: Если игра окончена, мы НЕ вызываем endTurn(), чтобы ход не передался дальше.
-            // WebSocket хендлер должен будет отправить финальное состояние игры.
             return;
         }
         self.endTurn(room);
@@ -175,28 +173,11 @@ public class GameService {
         if (player == null) {
             return false;
         }
-
-        boolean allMarkersCollected = player.hasCollectedAllTargetMarkers();
-        boolean onBase = player.isAtBase();
-
-        if (allMarkersCollected) {
-            log.info("Player {} (ID: {}) has collected all target markers. Now checking if on base...",
-                    player.getName(), player.getId());
-            if (onBase) {
-                log.info("Player {} (ID: {}) is on base. WIN CONDITION MET.", player.getName(), player.getId());
-                return true;
-            } else {
-                log.info("Player {} (ID: {}) has all markers but is not on base (at {},{} instead of {},{}).",
-                        player.getName(), player.getId(), player.getCurrentX(), player.getCurrentY(), player.getBase().x(), player.getBase().y());
-            }
-        } else {
-            log.trace("Player {} (ID: {}) has not collected all markers yet. Collected: {}, Targets: {}",
-                      player.getName(), player.getId(), player.getCollectedMarkerIds(), player.getTargetMarkerIds());
+        if (player.isReadyToWin()) {
+            log.info("Player {} (ID: {}) met win conditions!", player.getName(), player.getId());
+            return true;
         }
         return false;
-    }
-    private boolean isValidShift(int shiftIndex, Direction shiftDirection) {
-        return shiftIndex != -1 && shiftDirection != null;
     }
 
     private void collectMarkerIfPresent(Board board, Player player) {

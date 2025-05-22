@@ -11,7 +11,7 @@ import java.util.UUID;
 @Getter
 @Setter
 public class Player {
-    private UUID id; // WebSocket session ID или уникальный сгенерированный ID
+    private UUID id; // WebSocket session ID
     private String name;
     private String color; // Для отображения на фронтенде
     private int currentX;
@@ -48,7 +48,6 @@ public class Player {
         this.currentY = this.base.y();
     }
 
-
     public boolean isBase(int x, int y) {
         return this.base.x() == x && this.base.y() == y;
     }
@@ -58,8 +57,9 @@ public class Player {
     public void updateBase(Base newBase) {
         this.base = newBase;
     }
-
-
+    public boolean isReadyToWin() {
+        return hasCollectedAllTargetMarkers() && isAtBase();
+    }
 
     public void moveTo(int moveToX, int moveToY) {
         this.currentX = moveToX;
