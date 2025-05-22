@@ -57,10 +57,10 @@ public class BoardConfigLoader {
         if (config == null) {
             throw new IllegalArgumentException("BoardConfig cannot be null.");
         }
-        if (config.getBoardSize() <= 0 || config.getBoardSize() % 2 == 0) {
-            throw new IllegalArgumentException("Invalid board size in config: " + config.getBoardSize());
+        if (config.boardSize() <= 0 || config.boardSize() % 2 == 0) {
+            throw new IllegalArgumentException("Invalid board size in config: " + config.boardSize());
         }
-        if (config.getBases() == null || config.getBases().isEmpty()) {
+        if (config.bases() == null || config.bases().isEmpty()) {
             throw new IllegalArgumentException("Bases configuration is missing or empty.");
         }
         // ... другие проверки (количество баз, корректность координат, типы тайлов и т.д.)

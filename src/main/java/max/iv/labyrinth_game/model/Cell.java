@@ -20,6 +20,13 @@ public class Cell {
     private Marker stationaryMarker;
     private Set<Direction> fixedOpenSides = new HashSet<>();
 
+    public Cell(int x, int y, boolean isStationary) {
+        this.x = x;
+        this.y = y;
+        this.isStationary = isStationary;
+    }
+
+
     public Set<Direction> getOpenSides() {
         return tile != null ? tile.getOpenSides() : fixedOpenSides;
     }
