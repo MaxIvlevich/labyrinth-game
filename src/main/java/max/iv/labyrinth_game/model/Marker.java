@@ -6,12 +6,21 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.UUID;
+
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 public class Marker {
     private int id;
-    private String playerId;
-    private String description;
+    private UUID playerId;
+
+    public Marker(int id, UUID playerId) {
+        this.id = id;
+        this.playerId = playerId;
+    }
+
+    public Marker(int i) {
+
+    }
 }

@@ -2,13 +2,16 @@ package max.iv.labyrinth_game.model;
 
 import lombok.Getter;
 import lombok.Setter;
+import max.iv.labyrinth_game.model.enums.Direction;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
+
 @Getter
 @Setter
 public class Player {
-    private String id; // WebSocket session ID или уникальный сгенерированный ID
+    private UUID id; // WebSocket session ID или уникальный сгенерированный ID
     private String name;
     private String color; // Для отображения на фронтенде
     private int currentX;
@@ -18,21 +21,17 @@ public class Player {
     private boolean hasShiftedThisTurn; // Флаг, сдвигал ли игрок поле в этом ходу
 
     // Базовые координаты (где игрок начинает)
-    private final int baseX;
-    private final int baseY;
+    private  Base base;
 
 
-    public Player(String id, String name, String color, int baseX, int baseY) {
+    public Player(UUID id, String name, String color, Base base) {
         this.id = id;
         this.name = name;
         this.color = color;
-        this.currentX = baseX;
-        this.currentY = baseY;
-        this.baseX = baseX;
-        this.baseY = baseY;
-        this.collectedMarkerIds = new HashSet<>();
-        this.targetMarkerIds = new HashSet<>();
-        this.hasShiftedThisTurn = false;
+        this.base = base;
+        this.currentX = base.x();
+        this.currentY = base.y();
+
     }
 
     public void collectMarker(Marker marker) {
@@ -43,5 +42,21 @@ public class Player {
 
     public boolean hasCollectedAllTargetMarkers() {
         return collectedMarkerIds.containsAll(targetMarkerIds);
+    }
+
+    public void resetToMyBase() {
+        this.currentX = this.base.x();
+        this.currentY = this.base.y();
+    }
+
+
+    public boolean isBase(int x, int y) {
+        return this.base.x() == x && this.base.y() == y;
+    }
+    public boolean isAtBase() {
+        return this.currentX == base.x() && this.currentY == base.y();
+    }
+    public void updateBase(Base newBase) {
+        this.base = newBase;
     }
 }

@@ -1,6 +1,8 @@
 package max.iv.labyrinth_game.model;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import max.iv.labyrinth_game.model.enums.Direction;
 
@@ -9,50 +11,29 @@ import java.util.Set;
 
 @Setter
 @Getter
+@AllArgsConstructor
 public class Cell {
     private final int x;
     private final int y;
-    private boolean isStationary;
-    private Tile tile; // null для стационарных ячеек, которые просто "пространство"
-    // или для стационарных, которые имеют свою структуру (например, угловая база)
-    private Marker stationaryMarker; // Маркер, если он стационарно находится в этой ячейке (не на подвижном тайле)
+    private final boolean isStationary;
+    private Tile tile;
+    private Marker stationaryMarker;
+    private Set<Direction> fixedOpenSides = new HashSet<>();
 
-    // Для стационарных ячеек, которые не являются тайлами, но имеют соединения
-    private Set<Direction> fixedOpenSides; // Если isStationary и tile == null, описывает выходы
+    public Set<Direction> getOpenSides() {
+        return tile != null ? tile.getOpenSides() : fixedOpenSides;
+    }
 
-    public Cell(int x, int y, boolean isStationary) {
-        this.x = x;
-        this.y = y;
-        this.isStationary = isStationary;
-        this.fixedOpenSides = new HashSet<>(); // По умолчанию закрыто
+    public boolean connectsTo(Direction direction) {
+        return getOpenSides().contains(direction);
     }
 
     public Marker getActiveMarker() {
-        if (tile != null && tile.getMarker() != null) {
-            return tile.getMarker();
-        }
-        return stationaryMarker;
+        return tile != null ? tile.getMarker() : stationaryMarker;
     }
 
     public void removeActiveMarker() {
-        if (tile != null && tile.getMarker() != null) {
-            tile.setMarker(null);
-        } else if (stationaryMarker != null) {
-            stationaryMarker = null;
-        }
-    }
-
-    // Возвращает открытые стороны для этой ячейки (либо от тайла, либо фиксированные)
-    public Set<Direction> getOpenSides() {
-        if (tile != null) {
-            return tile.getOpenSides();
-        }
-        if (isStationary && fixedOpenSides != null) {
-            return fixedOpenSides;
-        }
-        return new HashSet<>(); // По умолчанию нет открытых сторон
-    }
-    public boolean connectsTo(Direction direction) {
-        return getOpenSides().contains(direction);
+        if (tile != null) tile.setMarker(null);
+        else stationaryMarker = null;
     }
 }

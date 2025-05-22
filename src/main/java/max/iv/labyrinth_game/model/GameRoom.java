@@ -50,4 +50,7 @@ public class GameRoom {
         getCurrentPlayer().setHasShiftedThisTurn(false); // Сброс флага для нового игрока
         this.gamePhase = GamePhase.PLAYER_SHIFT;
     }
+    public int getCurrentPlayersCount(){
+        return players.size();
+    }
 }
