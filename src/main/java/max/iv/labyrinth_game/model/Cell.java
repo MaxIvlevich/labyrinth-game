@@ -26,7 +26,6 @@ public class Cell {
         this.isStationary = isStationary;
     }
 
-
     public Set<Direction> getOpenSides() {
         return tile != null ? tile.getOpenSides() : fixedOpenSides;
     }

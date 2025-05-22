@@ -24,7 +24,6 @@ public class GameRoom {
         this.players = new ArrayList<>();
         this.gamePhase = GamePhase.WAITING_FOR_PLAYERS;
         this.maxPlayers = maxPlayers;
-        // board будет инициализирован, когда игра начнется
     }
 
     public Player getCurrentPlayer() {
@@ -47,10 +46,14 @@ public class GameRoom {
     public void nextTurn() {
         if (players.isEmpty()) return;
         currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
-        getCurrentPlayer().setHasShiftedThisTurn(false); // Сброс флага для нового игрока
         this.gamePhase = GamePhase.PLAYER_SHIFT;
     }
     public int getCurrentPlayersCount(){
         return players.size();
+    }
+    public void requirePhase(GamePhase expectedPhase) {
+        if (this.getGamePhase() != expectedPhase) {
+            throw new IllegalStateException("Expected phase: " + expectedPhase + ", but was: " + this.getGamePhase());
+        }
     }
 }

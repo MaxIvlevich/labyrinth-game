@@ -18,7 +18,6 @@ public class Player {
     private int currentY;
     private Set<Integer> collectedMarkerIds; // ID собранных маркеров
     private Set<Integer> targetMarkerIds; // ID маркеров, которые нужно собрать этому игроку
-    private boolean hasShiftedThisTurn; // Флаг, сдвигал ли игрок поле в этом ходу
 
     // Базовые координаты (где игрок начинает)
     private  Base base;
@@ -60,9 +59,7 @@ public class Player {
         this.base = newBase;
     }
 
-    public boolean hasShiftedThisTurn() {
-        return this.hasShiftedThisTurn;
-    }
+
 
     public void moveTo(int moveToX, int moveToY) {
         this.currentX = moveToX;
