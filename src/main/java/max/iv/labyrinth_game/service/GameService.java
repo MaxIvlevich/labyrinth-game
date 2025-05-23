@@ -74,23 +74,7 @@ public class GameService {
         return room;
     }
 
-    public GameRoom performTurn(String roomId, UUID playerId, int shiftIndex, Direction shiftDirection, int moveToX, int moveToY) {
-        GameRoom room = roomService.getRoom(roomId);
-        gameValidator.validateGameInProgress(room);
-        gameValidator.validatePlayerTurn(room, playerId);
-
-        Player currentPlayer = room.getCurrentPlayer();
-        performShiftAction(roomId, playerId, shiftIndex, shiftDirection);
-        performMoveAction(roomId, playerId, moveToX, moveToY);
-
-        log.info("Player {} (ID: {}) performed a turn in room {}. New current player: {}",
-                currentPlayer.getName(), currentPlayer.getId(), roomId,
-                room.getCurrentPlayer() != null ? room.getCurrentPlayer().getName() : "N/A");
-
-        return room;
-    }
-
-    public void performShiftAction(String roomId, UUID playerId, int shiftIndex, Direction shiftDirection) {
+    public GameRoom performShiftAction(String roomId, UUID playerId, int shiftIndex, Direction shiftDirection) {
         GameRoom room = roomService.getRoom(roomId);
         gameValidator.validatePlayerTurn(room, playerId);
         ShiftActionContext context = new ShiftActionContext(room, playerId, shiftIndex, shiftDirection);
@@ -102,9 +86,10 @@ public class GameService {
             log.warn("No SHIFT handler defined for game phase: {} in room {}", room.getGamePhase(), roomId);
             throw new IllegalStateException("Cannot perform shift action in phase: " + room.getGamePhase());
         }
+        return room;
     }
 
-    public void performMoveAction(String roomId, UUID playerId, int moveToX, int moveToY) {
+    public GameRoom performMoveAction(String roomId, UUID playerId, int moveToX, int moveToY) {
         GameRoom room = roomService.getRoom(roomId);
         gameValidator.validatePlayerTurn(room, playerId);
         MoveActionContext context = new MoveActionContext(room, playerId, moveToX, moveToY);
@@ -115,6 +100,7 @@ public class GameService {
             log.warn("No MOVE handler defined for game phase: {} in room {}", room.getGamePhase(), roomId);
             throw new IllegalStateException("Cannot perform move action in phase: " + room.getGamePhase());
         }
+        return room;
     }
 
     private static void handleShiftInShiftPhaseLogic(ShiftActionContext context, GameService self) {
@@ -137,6 +123,11 @@ public class GameService {
         GameRoom room = context.getRoom();
         Player currentPlayer = context.getCurrentPlayer();
         Board board = room.getBoard();
+        if (room.getGamePhase() != GamePhase.PLAYER_MOVE) {
+            log.error("CRITICAL: handleMoveInMovePhaseLogic called in incorrect phase {} for room {}",
+                    room.getGamePhase(), room.getRoomId());
+            throw new IllegalStateException("Internal error: Move logic called in wrong phase.");
+        }
 
         log.info("Player {} (ID: {}) performing MOVE in room {}: to ({},{})",
                 currentPlayer.getName(), context.getPlayerId(), room.getRoomId(),
@@ -251,6 +242,15 @@ public class GameService {
                 room.getRoomId(),
                 room.getCurrentPlayer().getName(),
                 nextPlayerIndex);
+    }
+
+    public void addPlayerToRoom(String roomId, Player newPlayer) {
+
+
+    }
+
+    public void handlePlayerDisconnect(UUID playerId, String roomId) {
+
     }
 
     private record Point(int x, int y) {

@@ -20,6 +20,7 @@ import lombok.NoArgsConstructor;
         @JsonSubTypes.Type(value = PlayerMoveActionRequest.class, name = "PLAYER_ACTION_MOVE"),
         @JsonSubTypes.Type(value = ErrorMessageResponse.class, name = "ERROR_MESSAGE"),
         @JsonSubTypes.Type(value = RoomCreatedResponse.class, name = "ROOM_CREATED"),
+        @JsonSubTypes.Type(value = GameStateUpdateResponse.class, name = "GAME_STATE_UPDATE"),
         // ... и GameStateUpdateDTO, GameOverMessageDTO когда они будут созданы
 })
 public class BaseMessage {
