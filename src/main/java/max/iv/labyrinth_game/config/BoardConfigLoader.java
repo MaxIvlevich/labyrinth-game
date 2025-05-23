@@ -16,10 +16,10 @@ import java.io.InputStream;
 @Slf4j
 @Getter
 @Setter
-@Component
+        //@Component
 public class BoardConfigLoader {
 
-    @Value("classpath:board-layout.json") // Путь к файлу конфигурации в resources
+    @Value("classpath:board-layout.json")
     private Resource configFile;
 
     private BoardConfig boardConfig;
