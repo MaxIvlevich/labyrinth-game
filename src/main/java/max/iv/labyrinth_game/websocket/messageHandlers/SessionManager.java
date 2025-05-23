@@ -15,15 +15,14 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Component
 public class SessionManager{
+
     private final Map<String, WebSocketSession> authenticatedGameSessions = new ConcurrentHashMap<>();
     private final Map<UUID, String> playerIdToSessionId = new ConcurrentHashMap<>();
-
     private final GameService gameService;
     private final RoomService roomService;
     private final GameStateBroadcaster gameStateBroadcaster;
-
-    private final String playerIdStingKey = "playerId";
-    private final String roomIdStingKey = "roomId";
+    public static final String PLAYER_ID_ATTRIBUTE_KEY = "playerId";
+    public static final String ROOM_ID_ATTRIBUTE_KEY = "roomId";
 
     @Autowired
     public SessionManager(GameService gameService, RoomService roomService, @Lazy GameStateBroadcaster gameStateBroadcaster) {
@@ -35,7 +34,6 @@ public class SessionManager{
 
     public void registerSession(WebSocketSession session) {
         log.debug("Session {} connected, awaiting game association.", session.getId());
-
     }
 
     public void associatePlayerWithSession(WebSocketSession session, UUID playerId, String roomId) {
@@ -46,8 +44,8 @@ public class SessionManager{
         }
         String sessionId = session.getId();
 
-        session.getAttributes().put(playerIdStingKey, playerId);
-        session.getAttributes().put(roomIdStingKey, roomId);
+        session.getAttributes().put(PLAYER_ID_ATTRIBUTE_KEY, playerId);
+        session.getAttributes().put(ROOM_ID_ATTRIBUTE_KEY, roomId);
 
         authenticatedGameSessions.put(sessionId, session);
         playerIdToSessionId.put(playerId, sessionId);
@@ -61,8 +59,8 @@ public class SessionManager{
         // Удаляем сессию из активных игровых сессий
         authenticatedGameSessions.remove(sessionId);
 
-        UUID playerId = (UUID) session.getAttributes().get(playerIdStingKey);
-        String roomId = (String) session.getAttributes().get(roomIdStingKey);
+        UUID playerId = (UUID) session.getAttributes().get(PLAYER_ID_ATTRIBUTE_KEY);
+        String roomId = (String) session.getAttributes().get(ROOM_ID_ATTRIBUTE_KEY);
 
         if (playerId != null) {
             playerIdToSessionId.remove(playerId); // Удаляем связь игрок -> сессия
@@ -72,7 +70,6 @@ public class SessionManager{
                 try {
                     gameService.handlePlayerDisconnect(playerId, roomId);
                     log.info("Notified GameService about disconnect of player {} from room {}", playerId, roomId);
-
                     // Инициируем рассылку обновленного состояния комнаты
                     if (gameStateBroadcaster != null) {
                         gameStateBroadcaster.broadcastGameStateToRoom(roomId);
@@ -117,11 +114,11 @@ public class SessionManager{
     }
     public UUID getPlayerIdBySession(WebSocketSession session) {
         if (session == null) return null;
-        return (UUID) session.getAttributes().get(playerIdStingKey);
+        return (UUID) session.getAttributes().get(PLAYER_ID_ATTRIBUTE_KEY);
     }
     public String getRoomIdBySession(WebSocketSession session) {
         if (session == null) return null;
-        return (String) session.getAttributes().get(roomIdStingKey);
+        return (String) session.getAttributes().get(ROOM_ID_ATTRIBUTE_KEY);
     }
     public Map<String, WebSocketSession> getAuthenticatedGameSessions() {
         return authenticatedGameSessions;
