@@ -7,7 +7,6 @@ import max.iv.labyrinth_game.model.Cell;
 import max.iv.labyrinth_game.model.GameRoom;
 import max.iv.labyrinth_game.model.Marker;
 import max.iv.labyrinth_game.model.Player;
-import max.iv.labyrinth_game.model.Tile;
 import max.iv.labyrinth_game.model.enums.Direction;
 import max.iv.labyrinth_game.model.enums.GamePhase;
 import max.iv.labyrinth_game.model.enums.PlayerAvatar;
@@ -19,7 +18,7 @@ import org.springframework.stereotype.Service;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.Optional;
+import java.util.List;
 import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
@@ -40,6 +39,8 @@ public class GameService {
     private EnumMap<GamePhase, BiConsumer<ShiftActionContext, GameService>> shiftActionHandlers;
     // Карта для обработки действий перемещения в зависимости от фазы
     private EnumMap<GamePhase, BiConsumer<MoveActionContext, GameService>> moveActionHandlers;
+    private final List<PlayerAvatar> avatars = PlayerAvatar.getAllAvatars();
+
 
     @Autowired
     public GameService(RoomService roomService, BoardSetupService boardSetupService, GameValidator gameValidator, BoardShiftService boardShiftService) {
@@ -247,10 +248,14 @@ public class GameService {
 
     public  GameRoom addPlayerToRoom(String roomId, Player newPlayer) {
         GameRoom room = roomService.getRoom(roomId);
+
         if (room == null) {
             throw new IllegalArgumentException("Room not found: " + roomId);
         }
         roomService.validateRoomForJoin(room);
+        int count = room.getPlayers().size();
+        newPlayer.setAvatar(avatars.get(count));
+
         room.addPlayer(newPlayer);
         log.info("Player {} (ID: {}) added to room {} by GameService", newPlayer.getName(), newPlayer.getId(), roomId);
         if (room.isFull() && room.getGamePhase() == GamePhase.WAITING_FOR_PLAYERS) {

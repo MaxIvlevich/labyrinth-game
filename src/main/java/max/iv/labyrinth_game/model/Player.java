@@ -1,10 +1,8 @@
 package max.iv.labyrinth_game.model;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import max.iv.labyrinth_game.model.enums.Direction;
 import max.iv.labyrinth_game.model.enums.PlayerAvatar;
 
 import java.util.HashSet;

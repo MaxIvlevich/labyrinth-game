@@ -6,7 +6,6 @@ import max.iv.labyrinth_game.mappers.GameStateMapper;
 import max.iv.labyrinth_game.model.GameRoom;
 import max.iv.labyrinth_game.model.Player;
 import max.iv.labyrinth_game.service.RoomService;
-import max.iv.labyrinth_game.websocket.SessionManager;
 import max.iv.labyrinth_game.websocket.dto.GameStateUpdateDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;

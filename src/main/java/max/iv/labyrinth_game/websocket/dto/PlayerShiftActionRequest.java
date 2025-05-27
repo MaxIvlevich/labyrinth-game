@@ -9,8 +9,8 @@ import max.iv.labyrinth_game.model.enums.Direction;
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class PlayerShiftActionRequest extends BaseMessage {
-    private String roomId; // ID комнаты, в которой происходит действие
-    // playerId будет браться из WebSocket сессии или Player объекта, связанного с сессией
+
+    private String roomId;
     private int shiftIndex;
     private Direction shiftDirection;
 
