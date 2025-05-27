@@ -10,6 +10,7 @@ import max.iv.labyrinth_game.model.Player;
 import max.iv.labyrinth_game.model.Tile;
 import max.iv.labyrinth_game.model.enums.Direction;
 import max.iv.labyrinth_game.model.enums.GamePhase;
+import max.iv.labyrinth_game.model.enums.PlayerAvatar;
 import max.iv.labyrinth_game.service.actions.MoveActionContext;
 import max.iv.labyrinth_game.service.actions.ShiftActionContext;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -244,9 +245,19 @@ public class GameService {
                 nextPlayerIndex);
     }
 
-    public void addPlayerToRoom(String roomId, Player newPlayer) {
-
-
+    public  GameRoom addPlayerToRoom(String roomId, Player newPlayer) {
+        GameRoom room = roomService.getRoom(roomId);
+        if (room == null) {
+            throw new IllegalArgumentException("Room not found: " + roomId);
+        }
+        roomService.validateRoomForJoin(room);
+        room.addPlayer(newPlayer);
+        log.info("Player {} (ID: {}) added to room {} by GameService", newPlayer.getName(), newPlayer.getId(), roomId);
+        if (room.isFull() && room.getGamePhase() == GamePhase.WAITING_FOR_PLAYERS) {
+            log.info("Room {} is now full with {} players. Starting game...", roomId, room.getPlayers().size());
+            this.startGame(roomId);
+        }
+        return room;
     }
 
     public void handlePlayerDisconnect(UUID playerId, String roomId) {

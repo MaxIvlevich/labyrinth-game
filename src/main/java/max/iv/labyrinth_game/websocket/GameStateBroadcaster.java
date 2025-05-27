@@ -1,4 +1,4 @@
-package max.iv.labyrinth_game.websocket.messageHandlers;
+package max.iv.labyrinth_game.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -6,6 +6,7 @@ import max.iv.labyrinth_game.mappers.GameStateMapper;
 import max.iv.labyrinth_game.model.GameRoom;
 import max.iv.labyrinth_game.model.Player;
 import max.iv.labyrinth_game.service.RoomService;
+import max.iv.labyrinth_game.websocket.SessionManager;
 import max.iv.labyrinth_game.websocket.dto.GameStateUpdateDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -40,7 +41,7 @@ public class GameStateBroadcaster {
             log.warn("Cannot broadcast game state: room {} not found.", roomId);
             return;
         }
-        GameStateUpdateDTO gameStateDto = gameStateMapper.toDto(room);  // todo
+        GameStateUpdateDTO gameStateDto = gameStateMapper.toDto(room);
         String jsonMessage;
         try {
             jsonMessage = objectMapper.writeValueAsString(gameStateDto);
@@ -55,7 +56,7 @@ public class GameStateBroadcaster {
 
         // Шаг 2: Получение сессий игроков и отправка
         for (Player player : room.getPlayers()) {
-            WebSocketSession playerSession = sessionManager.getSessionByPlayerId(player.getId()); // Player.getId() должен быть UUID
+            WebSocketSession playerSession = sessionManager.getSessionByPlayerId(player.getId());
             if (playerSession != null) { // Отправляем только если сессия активна
                 sendMessageToSessionInternal(playerSession, jsonMessage);
             } else {
@@ -64,14 +65,7 @@ public class GameStateBroadcaster {
             }
         }
     }
-    public void broadcastGameOver(String roomId, Player winner) {
-        if (winner == null) {
-            log.warn("Cannot broadcast game over for room {}: winner is null.", roomId);
-            broadcastGameStateToRoom(roomId);
-            return;
-        }
-        log.info("Broadcasting GAME OVER for room {}. Winner: {} (ID: {})", roomId, winner.getName(), winner.getId());
-    }
+
     private void sendMessageToSessionInternal(WebSocketSession session, String jsonMessage) {
         if (session != null && session.isOpen()) {
             try {
@@ -85,5 +79,4 @@ public class GameStateBroadcaster {
                     session != null ? session.getId() : "N/A");
         }
     }
-
 }

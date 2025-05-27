@@ -34,10 +34,15 @@ public class PlayerMapper {
                 new HashSet<>(player.getTargetMarkerIds()) :
                 Collections.emptySet();
 
+        String avatarTypeName = null;
+        if (player.getAvatar() != null) {
+            avatarTypeName = player.getAvatar().name();
+        }
+
         return new PlayerDTO(
                 player.getId(),
                 player.getName(),
-                player.getColor(),
+                avatarTypeName,
                 player.getCurrentX(),
                 player.getCurrentY(),
                 baseX,

@@ -1,8 +1,11 @@
 package max.iv.labyrinth_game.model;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import max.iv.labyrinth_game.model.enums.Direction;
+import max.iv.labyrinth_game.model.enums.PlayerAvatar;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -10,10 +13,11 @@ import java.util.UUID;
 
 @Getter
 @Setter
+@NoArgsConstructor
 public class Player {
     private UUID id; // WebSocket session ID
     private String name;
-    private String color; // Для отображения на фронтенде
+    private PlayerAvatar avatar;
     private int currentX;
     private int currentY;
     private Set<Integer> collectedMarkerIds; // ID собранных маркеров
@@ -23,16 +27,22 @@ public class Player {
     private  Base base;
 
 
-    public Player(UUID id, String name, String color, Base base) {
+    public Player(UUID id, String name, PlayerAvatar avatar, Base base) {
         this.id = id;
         this.name = name;
-        this.color = color;
+        this.avatar = avatar;
         this.base = base;
         this.currentX = base.x();
         this.currentY = base.y();
         this.collectedMarkerIds = new HashSet<>();
         this.targetMarkerIds = new HashSet<>();
 
+    }
+
+    public Player(UUID id, String name, Base base) {
+        this.id = id;
+        this.name = name;
+        this.base = base;
     }
 
     public void collectMarker(Marker marker) {

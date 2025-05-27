@@ -6,7 +6,10 @@ import java.util.UUID;
 public record PlayerDTO(
         UUID id,
         String name,
-        String color,
+        String avatarType,
+        //String avatarDisplayName,
+        //String avatarImageName,
+        //String avatarColorHex,
         int currentX,
         int currentY,
         int baseX,

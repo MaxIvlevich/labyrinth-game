@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import max.iv.labyrinth_game.websocket.dto.BaseMessage;
 import max.iv.labyrinth_game.websocket.dto.ErrorMessageResponse;
-import max.iv.labyrinth_game.websocket.messageHandlers.SessionManager;
 import max.iv.labyrinth_game.websocket.messageHandlers.WebSocketMessageHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;

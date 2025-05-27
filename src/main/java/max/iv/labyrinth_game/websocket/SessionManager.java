@@ -1,13 +1,17 @@
-package max.iv.labyrinth_game.websocket.messageHandlers;
+package max.iv.labyrinth_game.websocket;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.service.GameService;
 import max.iv.labyrinth_game.service.RoomService;
+import max.iv.labyrinth_game.websocket.dto.ErrorMessageResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -122,5 +126,22 @@ public class SessionManager{
     }
     public Map<String, WebSocketSession> getAuthenticatedGameSessions() {
         return authenticatedGameSessions;
+    }
+
+    public void sendMessageToSession(WebSocketSession session, Object payload, ObjectMapper objectMapper) {
+        if (session != null && session.isOpen()) {
+            try {
+                String jsonMessage = objectMapper.writeValueAsString(payload);
+                session.sendMessage(new TextMessage(jsonMessage));
+                log.debug("Sent (via SessionManager) to session {}: {}", session.getId(), jsonMessage.length() > 100 ? jsonMessage.substring(0,100) + "..." : jsonMessage);
+            } catch (IOException e) {
+                log.error("Error sending message via SessionManager to session {}: PayloadClass={}, Error={}",
+                        session.getId(), payload.getClass().getSimpleName(), e.getMessage());
+            }
+        }
+    }
+
+    public void sendErrorMessageToSession(WebSocketSession session, String messageText, ObjectMapper objectMapper) {
+        sendMessageToSession(session, new ErrorMessageResponse(messageText), objectMapper);
     }
 }

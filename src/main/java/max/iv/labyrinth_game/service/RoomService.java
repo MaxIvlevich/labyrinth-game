@@ -8,6 +8,7 @@ import max.iv.labyrinth_game.model.Player;
 import max.iv.labyrinth_game.model.enums.GamePhase;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -16,6 +17,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @AllArgsConstructor
 public class RoomService {
+
+    public static final List<String> AVAILABLE_PLAYER_COLORS = List.of("Red", "Blue", "Green", "Yellow");
 
     private final Map<String, GameRoom> gameRooms = new ConcurrentHashMap<>();
     public GameRoom createRoom(int maxPlayers) {
@@ -26,14 +29,11 @@ public class RoomService {
         return room;
     }
 
-    public GameRoom joinRoom(String roomId, String playerName, String playerColor) {
+    public GameRoom joinRoom(String roomId, String playerName) {
         GameRoom room = getExistingRoom(roomId);
         validateRoomForJoin(room);
 
-        Player player = new Player(UUID.randomUUID(), playerName, playerColor, new Base(0, 0, Set.of()));
-        room.addPlayer(player);
 
-        log.info("Player {} ({}) joined room {}.", playerName, player.getId(), roomId);
         return room;
     }
 
@@ -47,7 +47,7 @@ public class RoomService {
         }
     }
 
-    private void validateRoomForJoin(GameRoom room) {
+    public void validateRoomForJoin(GameRoom room) {
         if (room.isFull()) {
             throw new IllegalStateException("Room is full: " + room.getRoomId());
         }
