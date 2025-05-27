@@ -1,7 +1,6 @@
 package max.iv.labyrinth_game.model;
 
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -21,6 +20,8 @@ public class Marker {
     }
 
     public Marker(int i) {
+        this.id = i;
+        this.playerId = null;
 
     }
 }

@@ -30,22 +30,35 @@ public class Player {
         this.base = base;
         this.currentX = base.x();
         this.currentY = base.y();
+        this.collectedMarkerIds = new HashSet<>();
+        this.targetMarkerIds = new HashSet<>();
 
     }
 
     public void collectMarker(Marker marker) {
-        if (marker != null && targetMarkerIds.contains(marker.getId())) {
+        if (marker != null && targetMarkerIds != null && targetMarkerIds.contains(marker.getId())) {
+            if (collectedMarkerIds == null) { // Дополнительная защита, если сет не был инициализирован
+                collectedMarkerIds = new HashSet<>();
+            }
             collectedMarkerIds.add(marker.getId());
         }
     }
 
     public boolean hasCollectedAllTargetMarkers() {
+        if (targetMarkerIds == null || targetMarkerIds.isEmpty()) {
+            return false;
+        }
+        if (collectedMarkerIds == null) {
+            return false;
+        }
         return collectedMarkerIds.containsAll(targetMarkerIds);
     }
 
     public void resetToMyBase() {
-        this.currentX = this.base.x();
-        this.currentY = this.base.y();
+        if (this.base != null) {
+            this.currentX = this.base.x();
+            this.currentY = this.base.y();
+        }
     }
 
     public boolean isBase(int x, int y) {

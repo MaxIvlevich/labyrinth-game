@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import max.iv.labyrinth_game.model.enums.Direction;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -27,7 +28,10 @@ public class Cell {
     }
 
     public Set<Direction> getOpenSides() {
-        return tile != null ? tile.getOpenSides() : fixedOpenSides;
+        if (tile != null) {
+            return tile.getOpenSides();
+        }
+        return fixedOpenSides != null ? fixedOpenSides : Collections.emptySet();
     }
 
     public boolean connectsTo(Direction direction) {
@@ -35,11 +39,18 @@ public class Cell {
     }
 
     public Marker getActiveMarker() {
-        return tile != null ? tile.getMarker() : stationaryMarker;
+        if (this.tile != null && this.tile.getMarker() != null) {
+            return this.tile.getMarker();
+        }
+        return this.stationaryMarker;
     }
 
     public void removeActiveMarker() {
-        if (tile != null) tile.setMarker(null);
-        else stationaryMarker = null;
+        if (this.tile != null && this.tile.getMarker() != null) {
+            this.tile.setMarker(null); // Предполагаем, что у Tile есть setMarker(Marker marker)
+        }
+        else if (this.stationaryMarker != null) {
+            this.stationaryMarker = null;
+        }
     }
 }
