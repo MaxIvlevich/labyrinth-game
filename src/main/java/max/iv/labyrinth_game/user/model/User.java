@@ -43,7 +43,6 @@ public class User implements UserDetails {
     @Column(nullable = false, unique = true)
     private String email;
 
-    // URL или путь к файлу аватара для профиля пользователя
     @Column(name = "profile_avatar_url")
     private String profileAvatarUrl;
 
