@@ -19,6 +19,7 @@ import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
@@ -265,12 +266,92 @@ public class GameService {
         return room;
     }
 
-    public void handlePlayerDisconnect(UUID playerId, String roomId) {
+    public GameRoom handlePlayerDisconnect(UUID disconnectedPlayerId, String roomId) {
+        log.info("Handling disconnect for player ID {} in room ID {}", disconnectedPlayerId, roomId);
+        GameRoom room = roomService.getRoom(roomId);
 
+        if (room == null) {
+            log.warn("Room {} not found during disconnect handling for player {}. Cannot process disconnect.", roomId, disconnectedPlayerId);
+            throw new IllegalArgumentException("Room not found: " + roomId);
+        }
+
+        List<Player> playersInRoom = room.getPlayers();
+        Optional<Player> playerToRemoveOpt = playersInRoom.stream()
+                .filter(p -> p.getId().equals(disconnectedPlayerId))
+                .findFirst();
+
+        if (playerToRemoveOpt.isEmpty()) {
+            log.warn("Player ID {} not found in room {} during disconnect handling. Room state might be inconsistent or player already removed.", disconnectedPlayerId, roomId);
+            return room;
+        }
+
+        Player disconnectedPlayer = playerToRemoveOpt.get();
+        boolean wasCurrentPlayer = room.getCurrentPlayer() != null && room.getCurrentPlayer().getId().equals(disconnectedPlayerId);
+        int indexOfDisconnectedPlayer = playersInRoom.indexOf(disconnectedPlayer); // Получаем индекс ДО удаления
+
+        // 1. Удаляем игрока из списка игроков комнаты
+        playersInRoom.remove(disconnectedPlayer);
+        log.info("Player {} (name: {}) removed from room {}. Remaining players: {}",
+                disconnectedPlayer.getId(), disconnectedPlayer.getName(), roomId, playersInRoom.size());
+
+        // Если игра уже была завершена, просто выходим, состояние комнаты не меняем (кроме удаления игрока)
+        if (room.getGamePhase() == GamePhase.GAME_OVER) {
+            log.info("Game in room {} was already over. Player {} removed, no further game logic changes.", roomId, disconnectedPlayer.getName());
+            return room;
+        }
+
+        // 2. Обрабатываем игровую ситуацию в зависимости от количества оставшихся игроков
+        if (playersInRoom.isEmpty()) {
+            // Комната стала пустой
+            log.info("Room {} is now empty after player {} disconnected.", roomId, disconnectedPlayer.getName());
+            room.setGamePhase(GamePhase.WAITING_FOR_PLAYERS); // Или GAME_OVER, если это более подходящее состояние для пустой комнаты после игры
+            room.setWinner(null);
+            room.setCurrentPlayerIndex(-1); // Нет текущего игрока
+            // RoomService может позже иметь логику для удаления пустых неактивных комнат
+        } else if (playersInRoom.size() < 2 && room.getGamePhase() != GamePhase.WAITING_FOR_PLAYERS) {
+            // Игроков стало меньше двух (т.е. остался один или ноль), и игра шла (не была в ожидании)
+            log.info("Less than 2 players left in room {} after disconnect. Game over.", roomId);
+            room.setGamePhase(GamePhase.GAME_OVER);
+            if (playersInRoom.size() == 1) {
+                Player soleSurvivor = playersInRoom.get(0);
+                room.setWinner(soleSurvivor);
+                log.info("Player {} (name: {}) is the winner by default in room {}.", soleSurvivor.getId(), soleSurvivor.getName(), roomId);
+            } else {
+                room.setWinner(null); // Если 0 игроков
+            }
+            room.setCurrentPlayerIndex(-1);
+        } else if (wasCurrentPlayer) {
+            // Отключился текущий игрок, и в комнате есть еще как минимум один игрок для продолжения
+            log.info("Current player {} (name: {}) disconnected from room {}. Passing turn.",
+                    disconnectedPlayer.getId(), disconnectedPlayer.getName(), roomId);
+
+            int newCurrentPlayerIndex = indexOfDisconnectedPlayer % playersInRoom.size();
+
+            room.setCurrentPlayerIndex(newCurrentPlayerIndex);
+            room.setGamePhase(GamePhase.PLAYER_SHIFT); // Новый текущий игрок начинает со сдвига
+            log.info("Turn passed to player {} (name: {}) in room {} after disconnect. Phase set to PLAYER_SHIFT.",
+                    room.getCurrentPlayer().getId(), room.getCurrentPlayer().getName(), roomId);
+        } else {
+
+            if (indexOfDisconnectedPlayer < room.getCurrentPlayerIndex()) {
+                room.setCurrentPlayerIndex(room.getCurrentPlayerIndex() - 1);
+            }
+            if (room.getCurrentPlayerIndex() >= playersInRoom.size() || room.getCurrentPlayerIndex() < 0) {
+                log.warn("currentPlayerIndex out of bounds ({}) after non-current player disconnect in room {}. Resetting to 0.", room.getCurrentPlayerIndex(), roomId);
+                room.setCurrentPlayerIndex(0);
+                if (room.getGamePhase() != GamePhase.WAITING_FOR_PLAYERS) {
+                    room.setGamePhase(GamePhase.PLAYER_SHIFT);
+                }
+            }
+
+            log.info("Non-current player {} (name: {}) disconnected from room {}. Game continues. Current turn: {} (name: {}).",
+                    disconnectedPlayer.getId(), disconnectedPlayer.getName(), roomId,
+                    room.getCurrentPlayer().getId(), room.getCurrentPlayer().getName());
+        }
+        return room;
     }
 
     private record Point(int x, int y) {
     }
-
 }
 

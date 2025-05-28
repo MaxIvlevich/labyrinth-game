@@ -3,7 +3,6 @@ package max.iv.labyrinth_game.websocket.dto;
 import max.iv.labyrinth_game.dto.BoardDTO;
 import max.iv.labyrinth_game.dto.PlayerDTO;
 import max.iv.labyrinth_game.model.enums.GamePhase;
-import max.iv.labyrinth_game.websocket.dto.GameMessageType;
 
 import java.util.List;
 import java.util.UUID;
