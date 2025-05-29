@@ -1,7 +1,7 @@
 package max.iv.labyrinth_game.mappers;
 
-import max.iv.labyrinth_game.dto.MarkerDTO;
-import max.iv.labyrinth_game.model.Marker;
+import max.iv.labyrinth_game.dto.geme.MarkerDTO;
+import max.iv.labyrinth_game.model.game.Marker;
 import org.springframework.stereotype.Component;
 
 @Component

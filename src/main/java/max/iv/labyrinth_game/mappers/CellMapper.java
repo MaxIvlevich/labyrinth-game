@@ -1,9 +1,9 @@
 package max.iv.labyrinth_game.mappers;
 
-import max.iv.labyrinth_game.dto.CellDTO;
-import max.iv.labyrinth_game.dto.MarkerDTO;
-import max.iv.labyrinth_game.dto.TileDTO;
-import max.iv.labyrinth_game.model.Cell;
+import max.iv.labyrinth_game.dto.geme.CellDTO;
+import max.iv.labyrinth_game.dto.geme.MarkerDTO;
+import max.iv.labyrinth_game.dto.geme.TileDTO;
+import max.iv.labyrinth_game.model.game.Cell;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 

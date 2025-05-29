@@ -2,8 +2,8 @@ package max.iv.labyrinth_game.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import max.iv.labyrinth_game.service.GameService;
-import max.iv.labyrinth_game.service.RoomService;
+import max.iv.labyrinth_game.service.game.GameService;
+import max.iv.labyrinth_game.service.game.RoomService;
 import max.iv.labyrinth_game.websocket.dto.ErrorMessageResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;

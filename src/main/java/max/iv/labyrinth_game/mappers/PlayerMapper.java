@@ -1,8 +1,8 @@
 package max.iv.labyrinth_game.mappers;
 
 import lombok.extern.slf4j.Slf4j;
-import max.iv.labyrinth_game.dto.PlayerDTO;
-import max.iv.labyrinth_game.model.Player;
+import max.iv.labyrinth_game.dto.geme.PlayerDTO;
+import max.iv.labyrinth_game.model.game.Player;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;

@@ -1,8 +1,8 @@
 package max.iv.labyrinth_game.websocket.dto;
 
-import max.iv.labyrinth_game.dto.BoardDTO;
-import max.iv.labyrinth_game.dto.PlayerDTO;
-import max.iv.labyrinth_game.model.enums.GamePhase;
+import max.iv.labyrinth_game.dto.geme.BoardDTO;
+import max.iv.labyrinth_game.dto.geme.PlayerDTO;
+import max.iv.labyrinth_game.model.game.enums.GamePhase;
 
 import java.util.List;
 import java.util.UUID;

@@ -1,9 +1,9 @@
 package max.iv.labyrinth_game.mappers;
 
-import max.iv.labyrinth_game.dto.BoardDTO;
-import max.iv.labyrinth_game.dto.PlayerDTO;
-import max.iv.labyrinth_game.model.GameRoom;
-import max.iv.labyrinth_game.model.enums.GamePhase;
+import max.iv.labyrinth_game.dto.geme.BoardDTO;
+import max.iv.labyrinth_game.dto.geme.PlayerDTO;
+import max.iv.labyrinth_game.model.game.GameRoom;
+import max.iv.labyrinth_game.model.game.enums.GamePhase;
 import max.iv.labyrinth_game.websocket.dto.GameMessageType;
 import max.iv.labyrinth_game.websocket.dto.GameStateUpdateDTO;
 import org.springframework.beans.factory.annotation.Autowired;

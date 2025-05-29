@@ -2,9 +2,9 @@ package max.iv.labyrinth_game.websocket.messageHandlers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import max.iv.labyrinth_game.model.GameRoom;
-import max.iv.labyrinth_game.model.enums.GamePhase;
-import max.iv.labyrinth_game.service.GameService;
+import max.iv.labyrinth_game.model.game.GameRoom;
+import max.iv.labyrinth_game.model.game.enums.GamePhase;
+import max.iv.labyrinth_game.service.game.GameService;
 import max.iv.labyrinth_game.websocket.GameStateBroadcaster;
 import max.iv.labyrinth_game.websocket.SessionManager;
 import max.iv.labyrinth_game.websocket.dto.BaseMessage;
