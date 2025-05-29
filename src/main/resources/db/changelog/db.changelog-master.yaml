@@ -4,6 +4,6 @@ databaseChangeLog:
       author: mivlev
       changes:
         - sqlFile:
-            path: changes/V001_create-user-table.sql
+            path: changes/V001_labirint_game_users.sql
             relativeToChangelogFile: true
 
