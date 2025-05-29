@@ -19,6 +19,9 @@ import org.springframework.web.socket.WebSocketSession;
 import java.util.Set;
 import java.util.UUID;
 
+import static max.iv.labyrinth_game.websocket.config.JwtAuthHandshakeInterceptor.USER_ID_ATTRIBUTE_KEY;
+import static max.iv.labyrinth_game.websocket.config.JwtAuthHandshakeInterceptor.USER_NAME_ATTRIBUTE_KEY;
+
 @Slf4j
 @Component
 public class JoinRoomMessageHandler implements WebSocketMessageHandler{
@@ -27,8 +30,7 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler{
     private final GameStateBroadcaster gameStateBroadcaster;
     private final ObjectMapper objectMapper; // Для отправки ошибок через SessionManager
     private final Validator validator;
-    public static final String USER_ID_ATTRIBUTE_KEY = "userId";
-    public static final String USER_NAME_ATTRIBUTE_KEY = "userName";
+
 
     @Autowired
     public JoinRoomMessageHandler(GameService gameService,

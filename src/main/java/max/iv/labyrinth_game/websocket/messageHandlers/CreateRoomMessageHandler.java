@@ -21,6 +21,9 @@ import jakarta.validation.Validator;
 import java.util.Set;
 import java.util.UUID;
 
+import static max.iv.labyrinth_game.websocket.config.JwtAuthHandshakeInterceptor.USER_ID_ATTRIBUTE_KEY;
+import static max.iv.labyrinth_game.websocket.config.JwtAuthHandshakeInterceptor.USER_NAME_ATTRIBUTE_KEY;
+
 @Slf4j
 @Component
 public class CreateRoomMessageHandler implements WebSocketMessageHandler{
@@ -31,8 +34,7 @@ public class CreateRoomMessageHandler implements WebSocketMessageHandler{
     private final ObjectMapper objectMapper;
     private final GameService gameService;
     private final Validator validator;
-    public final String  USER_ID_ATTRIBUTE_KEY = "userId";
-    public final String  USER_NAME_ATTRIBUTE_KEY = "userName";
+
 
     @Autowired
     public CreateRoomMessageHandler(RoomService roomService,

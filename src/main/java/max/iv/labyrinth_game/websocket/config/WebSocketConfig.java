@@ -1,4 +1,4 @@
-package max.iv.labyrinth_game.config.game;
+package max.iv.labyrinth_game.websocket.config;
 
 import max.iv.labyrinth_game.websocket.GameWebSocketHandler;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,14 +10,17 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 @EnableWebSocket
 public class WebSocketConfig implements WebSocketConfigurer {
     private final GameWebSocketHandler gameWebSocketHandler;
+    private final JwtAuthHandshakeInterceptor jwtAuthHandshakeInterceptor;
 
     @Autowired
-    public WebSocketConfig(GameWebSocketHandler gameWebSocketHandler) {
+    public WebSocketConfig(GameWebSocketHandler gameWebSocketHandler, JwtAuthHandshakeInterceptor jwtAuthHandshakeInterceptor) {
         this.gameWebSocketHandler = gameWebSocketHandler;
+        this.jwtAuthHandshakeInterceptor = jwtAuthHandshakeInterceptor;
     }
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(gameWebSocketHandler, "/game")
+                .addInterceptors(jwtAuthHandshakeInterceptor)
                 .setAllowedOrigins("*");
 
     }

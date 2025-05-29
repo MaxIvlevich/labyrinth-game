@@ -31,7 +31,6 @@ public class BoardSetupService {
 
     private static final int TOTAL_UNIQUE_MARKER_TYPES = 12;
 
-
     public Board setupBoard(GameRoom room) {
         List<Player> players = room.getPlayers();
 
