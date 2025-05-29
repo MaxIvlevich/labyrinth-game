@@ -1,0 +1,62 @@
+package max.iv.labyrinth_game.controller.user;
+
+
+import lombok.extern.slf4j.Slf4j;
+import max.iv.labyrinth_game.dto.auth.JwtResponse;
+import max.iv.labyrinth_game.dto.auth.LoginRequest;
+import max.iv.labyrinth_game.dto.auth.MessageResponse;
+import max.iv.labyrinth_game.dto.auth.SignupRequest;
+import max.iv.labyrinth_game.service.auth.AuthService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@Slf4j
+@CrossOrigin(origins = "*", maxAge = 3600)
+@RestController
+@RequestMapping("/api/auth")
+public class AuthController {
+    private final AuthService authService;
+
+    @Autowired
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
+        if (loginRequest.usernameOrEmail() == null || loginRequest.usernameOrEmail().isBlank() ||
+                loginRequest.password() == null || loginRequest.password().isBlank()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: Username/Email and password are required."));
+        }
+        try {
+            JwtResponse jwtResponse = authService.loginUser(loginRequest);
+            return ResponseEntity.ok(jwtResponse);
+        } catch (Exception e) {
+            log.warn("Login failed for user {}: {}", loginRequest.usernameOrEmail(), e.getMessage());
+            return ResponseEntity.status(401).body(new MessageResponse("Error: Invalid credentials."));
+        }
+    }
+
+    @PostMapping("/signup")
+    public ResponseEntity<?> registerUser(@RequestBody SignupRequest signUpRequest) {
+        if (signUpRequest.username() == null || signUpRequest.username().isBlank() ||
+                signUpRequest.email() == null || signUpRequest.email().isBlank() ||
+                signUpRequest.password() == null || signUpRequest.password().isBlank()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: Username, email, and password are required."));
+        }
+        try {
+            authService.registerUser(signUpRequest);
+            return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        } catch (Exception e) {
+            log.error("Unexpected error during user registration: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(new MessageResponse("Error: Could not register user due to an internal error."));
+        }
+    }
+}

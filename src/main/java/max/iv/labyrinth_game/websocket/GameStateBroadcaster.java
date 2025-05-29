@@ -2,7 +2,7 @@ package max.iv.labyrinth_game.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import max.iv.labyrinth_game.mappers.GameStateMapper;
+import max.iv.labyrinth_game.mappers.game.GameStateMapper;
 import max.iv.labyrinth_game.model.game.GameRoom;
 import max.iv.labyrinth_game.model.game.Player;
 import max.iv.labyrinth_game.service.game.RoomService;

@@ -1,4 +1,4 @@
-package max.iv.labyrinth_game.mappers;
+package max.iv.labyrinth_game.mappers.game;
 
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.dto.geme.PlayerDTO;

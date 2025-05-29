@@ -1,4 +1,4 @@
-package max.iv.labyrinth_game.mappers;
+package max.iv.labyrinth_game.mappers.game;
 
 import max.iv.labyrinth_game.dto.geme.BoardDTO;
 import max.iv.labyrinth_game.dto.geme.PlayerDTO;

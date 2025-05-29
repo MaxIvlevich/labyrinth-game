@@ -44,7 +44,7 @@ public class JwtUtils {
                 .compact();
     }
 
-    private String generateJwtRefreshToken(String email) {
+    public String generateJwtRefreshToken(String email) {
         Date date = Date.from(LocalDateTime.now()
                 .plusDays(1)
                 .atZone(ZoneId.systemDefault())
