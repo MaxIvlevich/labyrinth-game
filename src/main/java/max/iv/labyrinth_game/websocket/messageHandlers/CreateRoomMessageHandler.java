@@ -16,6 +16,7 @@ import max.iv.labyrinth_game.websocket.dto.RoomCreatedResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
+import jakarta.validation.Validator;
 
 import java.util.Set;
 import java.util.UUID;
@@ -29,6 +30,7 @@ public class CreateRoomMessageHandler implements WebSocketMessageHandler{
     private final GameStateBroadcaster gameStateBroadcaster;
     private final ObjectMapper objectMapper;
     private final GameService gameService;
+    private final Validator validator;
     public final String  USER_ID_ATTRIBUTE_KEY = "userId";
     public final String  USER_NAME_ATTRIBUTE_KEY = "userName";
 
@@ -37,12 +39,13 @@ public class CreateRoomMessageHandler implements WebSocketMessageHandler{
                                     SessionManager sessionManager,
                                     GameStateBroadcaster gameStateBroadcaster,
                                     ObjectMapper objectMapper,
-             GameService gameService ) {
+                                    GameService gameService, Validator validator) {
         this.roomService = roomService;
         this.sessionManager = sessionManager;
         this.gameStateBroadcaster = gameStateBroadcaster;
         this.objectMapper = objectMapper;
         this.gameService = gameService;
+        this.validator = validator;
     }
 
     @Override
@@ -54,6 +57,9 @@ public class CreateRoomMessageHandler implements WebSocketMessageHandler{
     public void handle(WebSocketSession session, BaseMessage message) throws Exception {
         if (!(message instanceof CreateRoomRequest request)) {
             sessionManager.sendErrorMessageToSession(session, "Internal server error: Invalid message type for handler.", objectMapper);
+            return;
+        }
+        if (sessionManager.validateRequestAndSendError(session, request, validator, "CREATE_ROOM")) {
             return;
         }
         log.info("Handling CREATE_ROOM request from session {}: MaxPlayers={}",

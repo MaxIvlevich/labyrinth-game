@@ -1,6 +1,7 @@
 package max.iv.labyrinth_game.websocket.messageHandlers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.service.game.GameService;
 import max.iv.labyrinth_game.websocket.GameStateBroadcaster;
@@ -22,16 +23,18 @@ public class PlayerShiftActionMessageHandler implements WebSocketMessageHandler{
     private final SessionManager sessionManager;
     private final GameStateBroadcaster gameStateBroadcaster;
     private final ObjectMapper objectMapper;
+    private final Validator validator;
 
     @Autowired
     public PlayerShiftActionMessageHandler(GameService gameService,
                                            SessionManager sessionManager,
                                            GameStateBroadcaster gameStateBroadcaster,
-                                           ObjectMapper objectMapper) {
+                                           ObjectMapper objectMapper, Validator validator) {
         this.gameService = gameService;
         this.sessionManager = sessionManager;
         this.gameStateBroadcaster = gameStateBroadcaster;
         this.objectMapper = objectMapper;
+        this.validator = validator;
     }
 
     @Override
@@ -46,6 +49,9 @@ public class PlayerShiftActionMessageHandler implements WebSocketMessageHandler{
         if (!(message instanceof PlayerShiftActionRequest request)) {
             log.error("Internal error: PlayerShiftActionMessageHandler received non-PlayerShiftActionRequest: {}", message.getClass().getSimpleName());
             sessionManager.sendErrorMessageToSession(session, "Internal server error: Invalid message type for SHIFT action.", objectMapper);
+            return;
+        }
+        if (sessionManager.validateRequestAndSendError(session, request, validator, "CREATE_ROOM")) {
             return;
         }
 

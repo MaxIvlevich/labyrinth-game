@@ -1,6 +1,7 @@
 package max.iv.labyrinth_game.websocket.messageHandlers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.model.game.Base;
 import max.iv.labyrinth_game.model.game.GameRoom;
@@ -25,8 +26,7 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler{
     private final SessionManager sessionManager;
     private final GameStateBroadcaster gameStateBroadcaster;
     private final ObjectMapper objectMapper; // Для отправки ошибок через SessionManager
-
-    // Ключи для атрибутов сессии
+    private final Validator validator;
     public static final String USER_ID_ATTRIBUTE_KEY = "userId";
     public static final String USER_NAME_ATTRIBUTE_KEY = "userName";
 
@@ -34,11 +34,12 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler{
     public JoinRoomMessageHandler(GameService gameService,
                                   SessionManager sessionManager,
                                   GameStateBroadcaster gameStateBroadcaster,
-                                  ObjectMapper objectMapper) {
+                                  ObjectMapper objectMapper, Validator validator) {
         this.gameService = gameService;
         this.sessionManager = sessionManager;
         this.gameStateBroadcaster = gameStateBroadcaster;
         this.objectMapper = objectMapper;
+        this.validator = validator;
     }
     @Override
     public boolean supports(BaseMessage message) {
@@ -50,6 +51,9 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler{
         if (!(message instanceof JoinRoomRequest request)) {
             log.error("Internal error: JoinRoomMessageHandler received non-JoinRoomRequest message type: {}", message.getClass().getSimpleName());
             sessionManager.sendErrorMessageToSession(session, "Internal server error: Invalid message type for JOIN_ROOM handler.", objectMapper);
+            return;
+        }
+        if (sessionManager.validateRequestAndSendError(session, request, validator, "CREATE_ROOM")) {
             return;
         }
         String roomId = request.getRoomId();
