@@ -1,6 +1,7 @@
 package max.iv.labyrinth_game.controller.user;
 
 
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.dto.auth.JwtResponse;
 import max.iv.labyrinth_game.dto.auth.LoginRequest;
@@ -28,11 +29,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
-        if (loginRequest.usernameOrEmail() == null || loginRequest.usernameOrEmail().isBlank() ||
-                loginRequest.password() == null || loginRequest.password().isBlank()) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Username/Email and password are required."));
-        }
+    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         try {
             JwtResponse jwtResponse = authService.loginUser(loginRequest);
             return ResponseEntity.ok(jwtResponse);
@@ -43,12 +40,7 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<?> registerUser(@RequestBody SignupRequest signUpRequest) {
-        if (signUpRequest.username() == null || signUpRequest.username().isBlank() ||
-                signUpRequest.email() == null || signUpRequest.email().isBlank() ||
-                signUpRequest.password() == null || signUpRequest.password().isBlank()) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Username, email, and password are required."));
-        }
+    public ResponseEntity<?> registerUser(@Valid @RequestBody SignupRequest signUpRequest) {
         try {
             authService.registerUser(signUpRequest);
             return ResponseEntity.ok(new MessageResponse("User registered successfully!"));

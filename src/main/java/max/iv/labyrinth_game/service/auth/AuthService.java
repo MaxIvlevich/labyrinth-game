@@ -55,7 +55,7 @@ public class AuthService {
     }
 
     @Transactional
-    public User registerUser(SignupRequest signupRequest) {
+    public void registerUser(SignupRequest signupRequest) {
         if (userRepository.existsByUsername(signupRequest.username())) {
             throw new IllegalArgumentException("Error: Username is already taken!");
         }
@@ -69,6 +69,6 @@ public class AuthService {
                 passwordEncoder.encode(signupRequest.password()),
                 signupRequest.email()
         );
-        return userRepository.save(user);
+       userRepository.save(user);
     }
 }
