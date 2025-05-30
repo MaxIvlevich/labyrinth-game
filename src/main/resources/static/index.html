@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Лабиринт Онлайн</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+    <h1>Лабиринт Онлайн</h1>
+</header>
+
+<main>
+    <div id="game-info">
+        <p>Статус: <span id="game-status">Ожидание подключения...</span></p>
+        <p>Комната: <span id="room-id">Нет</span></p>
+        <p>Ваш ID: <span id="player-id">Нет</span></p>
+        <p>Ход игрока: <span id="current-player"></span></p>
+        <p>Фаза: <span id="current-phase"></span></p>
+    </div>
+
+    <div id="game-board-container">
+        <!-- Сюда будем генерировать доску с помощью JS -->
+    </div>
+
+    <div id="extra-tile-container">
+        <p>Лишний тайл:</p>
+        <div id="extra-tile-display">
+            <!-- Сюда будем отображать extraTile -->
+        </div>
+    </div>
+
+    <div id="controls">
+        <!-- Сюда можно будет добавить кнопки управления, если нужны будут не только клики по доске -->
+        <input type="text" id="message-input" placeholder="Отправить сообщение (тест)">
+        <button id="send-message-button">Отправить</button>
+    </div>
+
+    <div id="server-messages">
+        <h2>Сообщения от сервера:</h2>
+        <div id="log-output"></div>
+    </div>
+</main>
+
+<footer>
+    <p>© 2025 Лабиринт</p>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>

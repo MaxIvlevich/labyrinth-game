@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход - Лабиринт Онлайн</title>
+    <link rel="stylesheet" href="style.css"> <!-- Предполагаем, что стили для .login-container и .error-message здесь -->
+    <style>
+        /* Минимальные стили, если они не в style.css */
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 90vh; background-color: #f0f0f0;}
+        .login-container { width: 320px; padding: 20px; background-color: white; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
+        .login-container h2 { text-align: center; margin-bottom: 20px; }
+        .login-container label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .login-container input[type="text"],
+        .login-container input[type="password"] { width: calc(100% - 22px); padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; }
+        .login-container button { width: 100%; padding: 10px; background-color: #5cb85c; border: none; color: white; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .login-container button:hover { background-color: #4cae4c; }
+        .error-message { color: red; margin-bottom: 15px; text-align: center; font-size: 0.9em; min-height: 1.2em; /* чтобы не прыгала верстка */}
+        .register-link { text-align: center; margin-top: 15px; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+<div class="login-container">
+    <h2>Вход в Игру</h2>
+    <div id="errorMessage" class="error-message"></div>
+    <form id="loginForm">
+        <div>
+            <label for="usernameOrEmail">Имя Email:</label>
+            <input type="text" id="usernameOrEmail" name="usernameOrEmail" required>
+        </div>
+        <div>
+            <label for="password">Пароль:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <button type="submit">Войти</button>
+    </form>
+    <div class="register-link">
+        Нет аккаунта? <a href="/signup.html">Зарегистрироваться</a>
+    </div>
+</div>
+
+<script>
+    const loginForm = document.getElementById('loginForm');
+    const usernameOrEmailInput = document.getElementById('usernameOrEmail');
+    const passwordInput = document.getElementById('password');
+    const errorMessageDiv = document.getElementById('errorMessage');
+
+    loginForm.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        errorMessageDiv.textContent = '';
+
+        const usernameOrEmail = usernameOrEmailInput.value;
+        const password = passwordInput.value;
+
+
+        if (!usernameOrEmail || !password) {
+            errorMessageDiv.textContent = 'Пожалуйста, заполните все поля.';
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ usernameOrEmail, password })
+            });
+
+            const responseData = await response.json();
+
+            if (response.ok) { // Статус 200-299
+                console.log('Login successful:', responseData);
+                // Сохраняем токены. Ваш JwtResponse содержит accessToken и refreshToken
+                if (responseData.accessToken) {
+                    localStorage.setItem('accessToken', responseData.accessToken);
+                }
+                if (responseData.refreshToken) {
+                    localStorage.setItem('refreshToken', responseData.refreshToken);
+                }
+                window.location.href = '/';
+            } else {
+                errorMessageDiv.textContent = responseData.message || `Ошибка входа (статус: ${response.status})`;
+                console.error('Login failed:', responseData);
+            }
+        } catch (error) {
+            // Сетевая ошибка или проблема с JSON.parse, если ответ не JSON
+            errorMessageDiv.textContent = 'Произошла ошибка при попытке входа. Пожалуйста, попробуйте позже.';
+            console.error('Login request error:', error);
+        }
+    });
+</script>
+</body>
+</html>

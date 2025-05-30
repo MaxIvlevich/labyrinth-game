@@ -11,5 +11,6 @@ public enum GameMessageType {
     ROOM_CREATED,        // Комната создана (ответ на CREATE_ROOM)
     JOIN_SUCCESS,        // Успешное присоединение (ответ на JOIN_ROOM)
     GAME_STATE_UPDATE,   // Обновление состояния игры
+    WELCOME_MESSAGE,
     GAME_OVER_MESSAGE
 }

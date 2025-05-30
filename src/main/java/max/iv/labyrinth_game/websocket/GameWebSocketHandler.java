@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 
 
+import max.iv.labyrinth_game.dto.auth.JSONMessageToFront;
 import max.iv.labyrinth_game.websocket.dto.BaseMessage;
 import max.iv.labyrinth_game.websocket.dto.ErrorMessageResponse;
 import max.iv.labyrinth_game.websocket.messageHandlers.WebSocketMessageHandler;
@@ -40,9 +41,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         sessionManager.registerSession(session);
         log.info("CONNECTION ESTABLISHED: Session ID = {}, Remote Address = {}", session.getId(), session.getRemoteAddress());
         try {
-            session.sendMessage(new TextMessage("Welcome to Labyrinth Game! Please create or join a room."));
-        } catch (IOException e) {
-            log.error("Error sending welcome message to session {}: {}", session.getId(), e.getMessage());
+            JSONMessageToFront welcomeMsg = new JSONMessageToFront(
+                    "Welcome to Labyrinth Game! Please create or join a room.");
+            sessionManager.sendMessageToSession(session, welcomeMsg, objectMapper);
+        } catch (Exception e) {
+            log.error("Error sending welcome message to session {}: {}", session.getId(), e.getMessage(), e);
         }
     }
 

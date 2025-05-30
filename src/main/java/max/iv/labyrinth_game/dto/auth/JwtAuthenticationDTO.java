@@ -6,9 +6,9 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class JwtAuthenticationDTO {
-    private String accessToken;  // Переименовал token в accessToken для ясности
+    private String accessToken;
     private String refreshToken;
-    private String tokenType = "Bearer"; // Обычно добавляют тип токена
+    private String tokenType = "Bearer";
 
     public JwtAuthenticationDTO(String accessToken, String refreshToken) {
         this.accessToken = accessToken;
