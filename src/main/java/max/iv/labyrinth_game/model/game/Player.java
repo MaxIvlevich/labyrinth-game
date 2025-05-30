@@ -18,8 +18,8 @@ public class Player {
     private PlayerAvatar avatar;
     private int currentX;
     private int currentY;
-    private Set<Integer> collectedMarkerIds; // ID собранных маркеров
-    private Set<Integer> targetMarkerIds; // ID маркеров, которые нужно собрать этому игроку
+    private Set<Integer> collectedMarkerIds = new HashSet<>();; // ID собранных маркеров
+    private Set<Integer> targetMarkerIds = new HashSet<>();; // ID маркеров, которые нужно собрать этому игроку
 
     // Базовые координаты (где игрок начинает)
     private  Base base;
@@ -32,9 +32,6 @@ public class Player {
         this.base = base;
         this.currentX = base.x();
         this.currentY = base.y();
-        this.collectedMarkerIds = new HashSet<>();
-        this.targetMarkerIds = new HashSet<>();
-
     }
 
     public Player(UUID id, String name, Base base) {

@@ -1,0 +1,43 @@
+{
+  "boardSize": 7,
+  "bases": [
+    {
+      "x": 0,
+      "y": 0,
+      "exits": ["SOUTH", "EAST"],
+      "playerIdRef": 0
+    },
+    {
+      "x": 6,
+      "y": 0,
+      "exits": ["SOUTH", "WEST"],
+      "playerIdRef": 1
+    },
+    {
+      "x": 6,
+      "y": 6,
+      "exits": ["NORTH", "WEST"],
+      "playerIdRef": 2
+    },
+    {
+      "x": 0,
+      "y": 6,
+      "exits": ["NORTH", "EAST"],
+      "playerIdRef": 3
+    }
+  ],
+  "stationaryTiles": [
+    {"x": 0, "y": 2, "type": "T_SHAPED", "orientation": 1},
+    {"x": 0, "y": 4, "type": "T_SHAPED", "orientation": 1},
+    {"x": 2, "y": 0, "type": "T_SHAPED", "orientation": 2},
+    {"x": 2, "y": 2, "type": "T_SHAPED", "orientation": 1},
+    {"x": 2, "y": 4, "type": "T_SHAPED", "orientation": 1},
+    {"x": 2, "y": 6, "type": "T_SHAPED", "orientation": 0},
+    {"x": 4, "y": 0, "type": "T_SHAPED", "orientation": 2},
+    {"x": 4, "y": 2, "type": "T_SHAPED", "orientation": 3},
+    {"x": 4, "y": 4, "type": "T_SHAPED", "orientation": 3},
+    {"x": 4, "y": 6, "type": "T_SHAPED", "orientation": 0},
+    {"x": 6, "y": 2, "type": "T_SHAPED", "orientation": 3},
+    {"x": 6, "y": 4, "type": "T_SHAPED", "orientation": 3}
+  ]
+}

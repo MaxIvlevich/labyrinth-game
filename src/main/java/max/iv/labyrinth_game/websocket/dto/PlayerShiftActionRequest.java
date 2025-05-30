@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 import max.iv.labyrinth_game.model.game.enums.Direction;
 
 @Data
-@NoArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class PlayerShiftActionRequest extends BaseMessage {
     @NotBlank(message = "Room ID cannot be blank")

@@ -8,6 +8,7 @@ import lombok.Setter;
 import org.springframework.core.io.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,7 +16,7 @@ import java.io.InputStream;
 @Slf4j
 @Getter
 @Setter
-        //@Component
+@Component
 public class BoardConfigLoader {
 
     @Value("classpath:board-layout.json")

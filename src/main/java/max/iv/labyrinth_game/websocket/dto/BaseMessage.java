@@ -3,15 +3,18 @@ package max.iv.labyrinth_game.websocket.dto;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @JsonTypeInfo(
-        use = JsonTypeInfo.Id.NAME, // Используем имя типа из поля "type"
-        include = JsonTypeInfo.As.PROPERTY, // Поле "type" будет свойством в JSON
-        property = "type" // Имя поля, которое определяет тип
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.PROPERTY,
+        property = "type"
 )
 @JsonSubTypes({ // Перечисляем все возможные подтипы
         @JsonSubTypes.Type(value = CreateRoomRequest.class, name = "CREATE_ROOM"),
@@ -21,10 +24,9 @@ import lombok.NoArgsConstructor;
         @JsonSubTypes.Type(value = ErrorMessageResponse.class, name = "ERROR_MESSAGE"),
         @JsonSubTypes.Type(value = RoomCreatedResponse.class, name = "ROOM_CREATED"),
         @JsonSubTypes.Type(value = GameStateUpdateResponse.class, name = "GAME_STATE_UPDATE"),
-        // ... и GameStateUpdateDTO, GameOverMessageDTO когда они будут созданы
 })
 public class BaseMessage {
-    private GameMessageType type; // Тип сообщения
+    private GameMessageType type;
 
     public BaseMessage(GameMessageType type) {
         this.type = type;

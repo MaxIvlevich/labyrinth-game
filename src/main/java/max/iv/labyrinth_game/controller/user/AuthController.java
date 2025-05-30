@@ -34,7 +34,7 @@ public class AuthController {
             JwtResponse jwtResponse = authService.loginUser(loginRequest);
             return ResponseEntity.ok(jwtResponse);
         } catch (Exception e) {
-            log.warn("Login failed for user {}: {}", loginRequest.usernameOrEmail(), e.getMessage());
+            log.warn("Login failed for user {}: {}", loginRequest.email(), e.getMessage());
             return ResponseEntity.status(401).body(new MessageResponse("Error: Invalid credentials."));
         }
     }

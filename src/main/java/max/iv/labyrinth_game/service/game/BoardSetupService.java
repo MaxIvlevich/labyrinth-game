@@ -26,10 +26,14 @@ import java.util.stream.IntStream;
 @Service
 public class BoardSetupService {
 
-    private BoardConfigLoader boardConfigLoader;
+    private final BoardConfigLoader boardConfigLoader;
     private final Random random = new Random();
 
     private static final int TOTAL_UNIQUE_MARKER_TYPES = 12;
+
+    public BoardSetupService(BoardConfigLoader boardConfigLoader) {
+        this.boardConfigLoader = boardConfigLoader;
+    }
 
     public Board setupBoard(GameRoom room) {
         List<Player> players = room.getPlayers();
