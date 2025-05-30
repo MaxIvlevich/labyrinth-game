@@ -176,4 +176,32 @@ public class SessionManager{
             }
         }
     }
+
+    public WebSocketSession getAuthenticatedGameSessionById(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            log.warn("Attempted to get session with null or blank sessionId.");
+            return null;
+        }
+        WebSocketSession session = authenticatedGameSessions.get(sessionId);
+        if (session != null && session.isOpen()) {
+            return session;
+        } else if (session != null) { // Сессия найдена, но закрыта
+            log.warn("Session {} found but is not open. Removing stale entry from authenticatedGameSessions.", sessionId);
+            authenticatedGameSessions.remove(sessionId);
+            // Также нужно очистить обратную связь playerIdToSessionId, если она была
+            UUID playerId = getPlayerIdBySessionInternal(session);
+            if (playerId != null) {
+                playerIdToSessionId.remove(playerId, sessionId);
+            }
+            return null;
+        }
+        log.trace("No authenticated game session found for sessionId: {}", sessionId);
+        return null;
+
+    }
+
+    private UUID getPlayerIdBySessionInternal(WebSocketSession session) {
+        if (session == null) return null;
+        return (UUID) session.getAttributes().get(PLAYER_ID_ATTRIBUTE_KEY);
+    }
 }

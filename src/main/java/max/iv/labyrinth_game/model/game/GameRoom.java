@@ -12,6 +12,7 @@ import java.util.UUID;
 @Setter
 public class GameRoom {
     private final String roomId;
+    private String roomName;
     private Board board;
     private List<Player> players;
     private int currentPlayerIndex;
@@ -19,11 +20,12 @@ public class GameRoom {
     private Player winner;
     private int maxPlayers;
 
-    public GameRoom(int maxPlayers) {
-        this.roomId = UUID.randomUUID().toString().substring(0, 8); // Короткий ID комнаты
+    public GameRoom(int maxPlayers,String roomName) {
+        this.roomId = UUID.randomUUID().toString().substring(0, 8);
         this.players = new ArrayList<>();
         this.gamePhase = GamePhase.WAITING_FOR_PLAYERS;
         this.maxPlayers = maxPlayers;
+        this.roomName = roomName;
     }
 
     public Player getCurrentPlayer() {

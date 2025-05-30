@@ -24,6 +24,8 @@ import lombok.Setter;
         @JsonSubTypes.Type(value = ErrorMessageResponse.class, name = "ERROR_MESSAGE"),
         @JsonSubTypes.Type(value = RoomCreatedResponse.class, name = "ROOM_CREATED"),
         @JsonSubTypes.Type(value = GameStateUpdateResponse.class, name = "GAME_STATE_UPDATE"),
+        @JsonSubTypes.Type(value = GetRoomListRequest.class, name = "GET_ROOM_LIST_REQUEST"),
+        @JsonSubTypes.Type(value = RoomListUpdateResponse.class, name = "ROOM_LIST_UPDATE"),
 })
 public class BaseMessage {
     private GameMessageType type;

@@ -92,7 +92,6 @@ function initializeGameAndWebSocket(token, localPlayerId) {
             window.location.replace('/login.html');
         }
     };
-    // ...
 }
 
 function updateGameUI(gameState, myUserId) {

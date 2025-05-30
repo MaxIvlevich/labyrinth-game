@@ -12,5 +12,8 @@ public enum GameMessageType {
     JOIN_SUCCESS,        // Успешное присоединение (ответ на JOIN_ROOM)
     GAME_STATE_UPDATE,   // Обновление состояния игры
     WELCOME_MESSAGE,
-    GAME_OVER_MESSAGE
+    GAME_OVER_MESSAGE,
+
+    ROOM_LIST_UPDATE,
+    GET_ROOM_LIST_REQUEST
 }

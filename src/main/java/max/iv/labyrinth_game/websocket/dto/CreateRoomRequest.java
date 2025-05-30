@@ -12,10 +12,12 @@ public class CreateRoomRequest extends BaseMessage {
     @Min(value = 2, message = "Maximum players must be at least 2")
     @Max(value = 4, message = "Maximum players cannot exceed 4")
     private int maxPlayers;
+    private String roomName;
 
-    public CreateRoomRequest(int maxPlayers) {
+    public CreateRoomRequest(int maxPlayers,String roomName) {
         super(GameMessageType.CREATE_ROOM);
         this.maxPlayers = maxPlayers;
+        this.roomName = roomName;
 
     }
 }
