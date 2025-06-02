@@ -26,7 +26,6 @@ public class LobbyService {
     private static final int DEFAULT_PAGE_NUMBER = 0;
     private static final int DEFAULT_PAGE_SIZE = 8;
 
-
     private final ConcurrentHashMap<String, UUID> lobbySessions = new ConcurrentHashMap<>();
 
     public LobbyService(ObjectMapper objectMapper, RoomService roomService, SessionManager sessionManager, GameStateBroadcaster gameStateBroadcaster) {
@@ -46,7 +45,7 @@ public class LobbyService {
                 log.info("Player {} (session {}) is already in room {}. Not adding to lobby.", userId, session.getId(), currentRoomId);
                 return;
             }
-            sendRoomListToSession(session);
+            sendRoomListToSession(session,DEFAULT_PAGE_NUMBER, DEFAULT_PAGE_SIZE);
         }
     }
 
@@ -84,6 +83,14 @@ public class LobbyService {
                 sessionManager.sendMessageToSession(session, payload, objectMapper);
             }
         }
+        for (String sessionId : new ConcurrentHashMap<>(lobbySessions).keySet()) {
+            WebSocketSession session = sessionManager.getAuthenticatedGameSessionById(sessionId);
+            if (session != null && session.isOpen()) {
+                sessionManager.sendMessageToSession(session, payload, objectMapper);
+            } else {
+                lobbySessions.remove(sessionId);
+            }
+        }
     }
 
     private List<RoomInfoDTO> getCurrentRoomList() {
@@ -91,13 +98,13 @@ public class LobbyService {
         return roomService.getAllRoomsInfo(LobbyService.DEFAULT_PAGE_NUMBER, LobbyService.DEFAULT_PAGE_SIZE);
     }
 
-    public void sendRoomListToSession(WebSocketSession session) {
+    public void sendRoomListToSession(WebSocketSession session,int number,int size) {
         if (session == null || !session.isOpen()) {
             log.warn("Cannot send room list: session is null or not open.");
             return;
         }
-        List<RoomInfoDTO> roomList = getCurrentRoomList(); // Тут
-        PageInfo pageDetails = getRoomListPageInfo(DEFAULT_PAGE_NUMBER,DEFAULT_PAGE_SIZE);
+        List<RoomInfoDTO> roomList = getCurrentRoomList();
+        PageInfo pageDetails = getRoomListPageInfo(number,size);
         RoomListUpdateResponse payload = new RoomListUpdateResponse(roomList,pageDetails);
         sessionManager.sendMessageToSession(session, payload, objectMapper);
         log.info("Sent room list to session {}", session.getId());
