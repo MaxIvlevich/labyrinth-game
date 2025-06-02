@@ -40,7 +40,6 @@ public class RequestRoomListMessageHandler implements WebSocketMessageHandler{
             sessionManager.sendErrorMessageToSession(session, "Internal server error: Invalid message type for GET_ROOM_LIST_REQUEST handler.", objectMapper);
             return;
         }
-
         // 1. Валидация DTO запроса
         if (sessionManager.validateRequestAndSendError(session, request, validator, "GET_ROOM_LIST")) {
             return; // Если были ошибки валидации, выходим

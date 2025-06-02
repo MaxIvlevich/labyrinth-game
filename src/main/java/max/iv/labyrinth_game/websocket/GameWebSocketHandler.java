@@ -1,10 +1,12 @@
 package max.iv.labyrinth_game.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 
 
 import max.iv.labyrinth_game.dto.auth.JSONMessageToFront;
+import max.iv.labyrinth_game.service.game.LobbyService;
 import max.iv.labyrinth_game.websocket.dto.BaseMessage;
 import max.iv.labyrinth_game.websocket.dto.ErrorMessageResponse;
 import max.iv.labyrinth_game.websocket.messageHandlers.WebSocketMessageHandler;
@@ -17,6 +19,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -26,13 +29,16 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper;
     private final SessionManager sessionManager;
 
+    private final LobbyService lobbyService;
+
     @Autowired
     public GameWebSocketHandler(List<WebSocketMessageHandler> messageHandlers,
                                 ObjectMapper objectMapper,
-                                SessionManager sessionManager) {
+                                SessionManager sessionManager, LobbyService lobbyService) {
         this.messageHandlers = messageHandlers;
         this.objectMapper = objectMapper;
         this.sessionManager = sessionManager;
+        this.lobbyService = lobbyService;
         log.info("GameWebSocketHandler initialized with {} message handlers.", messageHandlers.size());
     }
 
@@ -44,6 +50,15 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             JSONMessageToFront welcomeMsg = new JSONMessageToFront(
                     "Welcome to Labyrinth Game! Please create or join a room.");
             sessionManager.sendMessageToSession(session, welcomeMsg, objectMapper);
+
+            UUID userId = (UUID) session.getAttributes().get(SessionManager.PLAYER_ID_ATTRIBUTE_KEY);
+            String userName = (String) session.getAttributes().get(SessionManager.ROOM_ID_ATTRIBUTE_KEY);
+
+            if (userId != null && userName != null) {
+                lobbyService.addSessionToLobby(session, userId);
+            } else {
+                log.warn("Session {} connected, but user details not found in session attributes. Not adding to lobby yet.", session.getId());
+            }
         } catch (Exception e) {
             log.error("Error sending welcome message to session {}: {}", session.getId(), e.getMessage(), e);
         }
