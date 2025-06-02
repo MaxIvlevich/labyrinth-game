@@ -1,22 +1,16 @@
 package max.iv.labyrinth_game.service.game;
 
-import com.opencsv.bean.CsvToBean;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.model.game.GameRoom;
 import max.iv.labyrinth_game.model.game.enums.GamePhase;
-import max.iv.labyrinth_game.websocket.dto.RoomSummaryDTO;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import max.iv.labyrinth_game.websocket.dto.RoomInfoDTO;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -69,29 +63,35 @@ public class RoomService {
         return room;
     }
 
-    public Page<RoomSummaryDTO> getAllRooms() {
-        int pageNumber = 0;
-        int pageSize= 8 ;
+    public List<RoomInfoDTO> getAllRoomsInfo(int pageNumber, int pageSize) {
+        log.debug("Fetching rooms info for page: {}, size: {}", pageNumber, pageSize);
+        List<RoomInfoDTO> allRooms = gameRooms.values().stream()
+                .map(this::mapGameRoomToRoomInfoDTO)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
 
-        List<GameRoom> allRoomsList = new ArrayList<>(gameRooms.values());
-        allRoomsList.sort(Comparator.comparing(GameRoom::getRoomId));
+        int totalRooms = allRooms.size();
+        int fromIndex = pageNumber * pageSize;
+        int toIndex = Math.min(fromIndex + pageSize, totalRooms);
 
-        int totalRooms = allRoomsList.size();
-        int startIndex = 0;
-        int endIndex = Math.min(startIndex + pageSize, totalRooms);
-
-        List<RoomSummaryDTO> roomSummariesOnPage;
-        if (startIndex >= totalRooms) {
-            roomSummariesOnPage = Collections.emptyList();
-        } else {
-            roomSummariesOnPage = allRoomsList.subList(startIndex, endIndex).stream()
-                    .map(this::mapToRoomSummaryDTO)
-                    .collect(Collectors.toList());
+        if (fromIndex >= totalRooms) {
+            return Collections.emptyList();
         }
-
-        Pageable pageable = PageRequest.of(pageNumber, pageSize);
-        return new PageImpl<>(roomSummariesOnPage, pageable, totalRooms);
+        return allRooms.subList(fromIndex, toIndex);
     }
 
+    private RoomInfoDTO mapGameRoomToRoomInfoDTO(GameRoom room) {
+        if (room == null) return null;
+        return new RoomInfoDTO(
+                room.getRoomId(),
+                room.getRoomName(),
+                room.getPlayers() != null ? room.getPlayers().size() : 0,
+                room.getMaxPlayers(),
+                room.getGamePhase()
+        );
+    }
 
+    public long getTotalRoomCount() {
+        return gameRooms.size();
+    }
 }

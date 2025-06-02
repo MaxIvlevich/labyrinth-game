@@ -2,7 +2,7 @@ package max.iv.labyrinth_game.websocket.dto;
 
 import max.iv.labyrinth_game.model.game.enums.GamePhase;
 
-public record RoomSummaryDTO(
+public record RoomInfoDTO(
         String roomId,
         String roomName,
         int currentPlayerCount,
