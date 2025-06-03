@@ -35,13 +35,11 @@ public class GameService {
     private final GameValidator gameValidator;
     private final BoardShiftService boardShiftService;
     private final Random random = new Random();
-
     // Карта для обработки действий сдвига в зависимости от фазы
     private EnumMap<GamePhase, BiConsumer<ShiftActionContext, GameService>> shiftActionHandlers;
     // Карта для обработки действий перемещения в зависимости от фазы
     private EnumMap<GamePhase, BiConsumer<MoveActionContext, GameService>> moveActionHandlers;
     private final List<PlayerAvatar> avatars = PlayerAvatar.getAllAvatars();
-
 
     @Autowired
     public GameService(RoomService roomService, BoardSetupService boardSetupService, GameValidator gameValidator, BoardShiftService boardShiftService) {
@@ -62,7 +60,6 @@ public class GameService {
         moveActionHandlers = new EnumMap<>(GamePhase.class);
         moveActionHandlers.put(GamePhase.PLAYER_MOVE, GameService::handleMoveInMovePhaseLogic);
     }
-
 
     public GameRoom startGame(String roomId) {
         GameRoom room = roomService.getRoom(roomId);

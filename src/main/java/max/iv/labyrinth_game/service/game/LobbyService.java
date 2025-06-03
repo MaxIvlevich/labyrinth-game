@@ -22,7 +22,6 @@ public class LobbyService {
     private final ObjectMapper objectMapper;
     private final RoomService roomService;
     private final SessionManager sessionManager;
-
     private static final int DEFAULT_PAGE_NUMBER = 0;
     private static final int DEFAULT_PAGE_SIZE = 8;
 
