@@ -5,6 +5,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.service.game.GameService;
+import max.iv.labyrinth_game.service.game.LobbyService;
 import max.iv.labyrinth_game.service.game.RoomService;
 import max.iv.labyrinth_game.websocket.dto.ErrorMessageResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,15 +31,18 @@ public class SessionManager{
     private final RoomService roomService;
     private final GameStateBroadcaster gameStateBroadcaster;
     private final ObjectMapper objectMapper;
+    private final LobbyService lobbyService;
+
     public static final String PLAYER_ID_ATTRIBUTE_KEY = "playerId";
     public static final String ROOM_ID_ATTRIBUTE_KEY = "roomId";
 
     @Autowired
-    public SessionManager(GameService gameService, RoomService roomService, @Lazy GameStateBroadcaster gameStateBroadcaster, ObjectMapper objectMapper) {
+    public SessionManager(GameService gameService, RoomService roomService, @Lazy GameStateBroadcaster gameStateBroadcaster, ObjectMapper objectMapper, LobbyService lobbyService) {
         this.gameService = gameService;
         this.roomService = roomService;
         this.gameStateBroadcaster = gameStateBroadcaster; // Сохраняем для будущего использования
         this.objectMapper = objectMapper;
+        this.lobbyService = lobbyService;
         log.info("SessionManager initialized.");
     }
 
@@ -83,7 +87,9 @@ public class SessionManager{
                     // Инициируем рассылку обновленного состояния комнаты
                     if (gameStateBroadcaster != null) {
                         gameStateBroadcaster.broadcastGameStateToRoom(roomId);
+                        lobbyService.broadcastRoomListToLobby();
                     } else {
+                        lobbyService.removeSessionFromLobby(session);
                         log.warn("GameStateBroadcaster is null in SessionManager, cannot broadcast after disconnect.");
                     }
                 } catch (Exception e) {
@@ -95,6 +101,7 @@ public class SessionManager{
                         playerId, sessionId);
             }
         } else {
+            lobbyService.removeSessionFromLobby(session);
             log.warn("No playerId found in session attributes for closed session {}.", sessionId);
         }
         log.info("Session {} fully unregistered.", sessionId);
@@ -104,6 +111,7 @@ public class SessionManager{
         log.error("Transport error for session {}: {}", session.getId(), exception.getMessage());
         unregisterSession(session);
     }
+
     public WebSocketSession getSessionByPlayerId(UUID playerId) {
         if (playerId == null) return null;
         String sessionId = playerIdToSessionId.get(playerId);
@@ -122,14 +130,17 @@ public class SessionManager{
         log.trace("No active session found for playerId: {}", playerId); // trace, т.к. может быть частым
         return null;
     }
+
     public UUID getPlayerIdBySession(WebSocketSession session) {
         if (session == null) return null;
         return (UUID) session.getAttributes().get(PLAYER_ID_ATTRIBUTE_KEY);
     }
+
     public String getRoomIdBySession(WebSocketSession session) {
         if (session == null) return null;
         return (String) session.getAttributes().get(ROOM_ID_ATTRIBUTE_KEY);
     }
+
     public Map<String, WebSocketSession> getAuthenticatedGameSessions() {
         return authenticatedGameSessions;
     }
@@ -150,6 +161,7 @@ public class SessionManager{
     public void sendErrorMessageToSession(WebSocketSession session, String messageText, ObjectMapper objectMapper) {
         sendMessageToSession(session, new ErrorMessageResponse(messageText), objectMapper);
     }
+
     public <T> boolean validateRequestAndSendError(WebSocketSession session, T requestDto, Validator validator, String actionName) {
         Set<ConstraintViolation<T>> violations = validator.validate(requestDto);
         if (!violations.isEmpty()) {

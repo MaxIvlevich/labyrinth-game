@@ -4,9 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.model.game.Base;
-import max.iv.labyrinth_game.model.game.GameRoom;
 import max.iv.labyrinth_game.model.game.Player;
 import max.iv.labyrinth_game.service.game.GameService;
+import max.iv.labyrinth_game.service.game.LobbyService;
 import max.iv.labyrinth_game.websocket.GameStateBroadcaster;
 import max.iv.labyrinth_game.websocket.SessionManager;
 import max.iv.labyrinth_game.websocket.dto.BaseMessage;
@@ -30,18 +30,21 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler{
     private final GameStateBroadcaster gameStateBroadcaster;
     private final ObjectMapper objectMapper; // Для отправки ошибок через SessionManager
     private final Validator validator;
+    private final LobbyService lobbyService;
+
 
 
     @Autowired
     public JoinRoomMessageHandler(GameService gameService,
                                   SessionManager sessionManager,
                                   GameStateBroadcaster gameStateBroadcaster,
-                                  ObjectMapper objectMapper, Validator validator) {
+                                  ObjectMapper objectMapper, Validator validator, LobbyService lobbyService) {
         this.gameService = gameService;
         this.sessionManager = sessionManager;
         this.gameStateBroadcaster = gameStateBroadcaster;
         this.objectMapper = objectMapper;
         this.validator = validator;
+        this.lobbyService = lobbyService;
     }
     @Override
     public boolean supports(BaseMessage message) {
@@ -81,14 +84,16 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler{
             // 3. Создаем объект Player (без аватара, его назначит GameService)
             Player newPlayer = new Player(userId, userName, new Base(0, 0, Set.of()));
             // 4. Добавляем игрока в комнату через GameService.
-            GameRoom updatedRoom = gameService.addPlayerToRoom(roomId, newPlayer);
+            gameService.addPlayerToRoom(roomId, newPlayer);
             // 5. Ассоциируем WebSocket сессию с ID игрока и ID комнаты
             sessionManager.associatePlayerWithSession(session, userId, roomId);
+            lobbyService.removePlayerFromLobby(userId);
             // 6. Отправляем подтверждение присоединения этому клиенту
             sessionManager.sendMessageToSession(session, new BaseMessage(GameMessageType.JOIN_SUCCESS), objectMapper);
             log.info("Player {} (ID: {}, Avatar: {}) joined room {}. Session {} associated.",
                     userName, userId, newPlayer.getAvatar(), roomId, session.getId());
             // 7. Отправляем обновленное состояние игры всем в комнате
+            lobbyService.broadcastRoomListToLobby();
             gameStateBroadcaster.broadcastGameStateToRoom(roomId);
 
         } catch (IllegalArgumentException | IllegalStateException e) {
