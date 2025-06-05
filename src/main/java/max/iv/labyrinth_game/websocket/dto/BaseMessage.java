@@ -13,7 +13,6 @@ import lombok.Setter;
 @NoArgsConstructor
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
-        include = JsonTypeInfo.As.PROPERTY,
         property = "type"
 )
 @JsonSubTypes({ // Перечисляем все возможные подтипы

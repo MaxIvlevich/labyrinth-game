@@ -28,7 +28,7 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler{
     private final GameService gameService;
     private final SessionManager sessionManager;
     private final GameStateBroadcaster gameStateBroadcaster;
-    private final ObjectMapper objectMapper; // Для отправки ошибок через SessionManager
+    private final ObjectMapper objectMapper;
     private final Validator validator;
     private final LobbyService lobbyService;
 

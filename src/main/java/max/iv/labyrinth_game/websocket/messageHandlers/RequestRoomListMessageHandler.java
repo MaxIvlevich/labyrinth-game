@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.service.game.LobbyService;
+import max.iv.labyrinth_game.websocket.LobbyBroadcaster;
 import max.iv.labyrinth_game.websocket.SessionManager;
 import max.iv.labyrinth_game.websocket.dto.BaseMessage;
 import max.iv.labyrinth_game.websocket.dto.GameMessageType;
@@ -16,13 +17,13 @@ import org.springframework.web.socket.WebSocketSession;
 @Component
 public class RequestRoomListMessageHandler implements WebSocketMessageHandler{
 
-    private final LobbyService lobbyService;
+    private final LobbyBroadcaster lobbyBroadcaster;
     private final SessionManager sessionManager;
     private final Validator validator;
     private final ObjectMapper objectMapper;
     @Autowired
-    public RequestRoomListMessageHandler(LobbyService lobbyService, SessionManager sessionManager, Validator validator, ObjectMapper objectMapper) {
-        this.lobbyService = lobbyService;
+    public RequestRoomListMessageHandler(LobbyBroadcaster lobbyBroadcaster, SessionManager sessionManager, Validator validator, ObjectMapper objectMapper) {
+        this.lobbyBroadcaster = lobbyBroadcaster;
         this.sessionManager = sessionManager;
         this.validator = validator;
         this.objectMapper = objectMapper;
@@ -55,7 +56,7 @@ public class RequestRoomListMessageHandler implements WebSocketMessageHandler{
 
         try {
             // 2. Вызываем LobbyService для отправки списка комнат этой сессии
-            lobbyService.sendRoomListToSession(session, request.getPageNumber(), request.getPageSize());
+            lobbyBroadcaster.sendRoomListToSession(session, request.getPageNumber(), request.getPageSize());
         } catch (IllegalArgumentException | IllegalStateException e) { // Ошибки от сервисов
             log.warn("Failed to process GET_ROOM_LIST_REQUEST for session {}: {}", session.getId(), e.getMessage());
             sessionManager.sendErrorMessageToSession(session, e.getMessage(), objectMapper);

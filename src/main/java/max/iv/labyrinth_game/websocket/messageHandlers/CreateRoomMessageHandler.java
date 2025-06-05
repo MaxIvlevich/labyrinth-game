@@ -13,7 +13,9 @@ import max.iv.labyrinth_game.websocket.dto.BaseMessage;
 import max.iv.labyrinth_game.websocket.dto.CreateRoomRequest;
 import max.iv.labyrinth_game.websocket.dto.GameMessageType;
 import max.iv.labyrinth_game.websocket.dto.RoomCreatedResponse;
+import max.iv.labyrinth_game.websocket.events.LobbyRoomListNeedsUpdateEvent;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 import jakarta.validation.Validator;
@@ -34,6 +36,7 @@ public class CreateRoomMessageHandler implements WebSocketMessageHandler{
     private final ObjectMapper objectMapper;
     private final GameService gameService;
     private final Validator validator;
+    private final ApplicationEventPublisher eventPublisher;
 
 
     @Autowired
@@ -41,13 +44,14 @@ public class CreateRoomMessageHandler implements WebSocketMessageHandler{
                                     SessionManager sessionManager,
                                     GameStateBroadcaster gameStateBroadcaster,
                                     ObjectMapper objectMapper,
-                                    GameService gameService, Validator validator) {
+                                    GameService gameService, Validator validator, ApplicationEventPublisher eventPublisher) {
         this.roomService = roomService;
         this.sessionManager = sessionManager;
         this.gameStateBroadcaster = gameStateBroadcaster;
         this.objectMapper = objectMapper;
         this.gameService = gameService;
         this.validator = validator;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -92,6 +96,10 @@ public class CreateRoomMessageHandler implements WebSocketMessageHandler{
             log.info("Sent RoomCreatedResponse to session {}", session.getId());
             // 6. Отправляем начальное состояние комнаты
             gameStateBroadcaster.broadcastGameStateToRoom(roomWithCreator.getRoomId());
+            // 7. Публикуем событие для обновления списка комнат в лобби
+            log.debug("Publishing LobbyRoomListNeedsUpdateEvent after room creation: {}", roomId);
+            eventPublisher.publishEvent(new LobbyRoomListNeedsUpdateEvent(this));
+
 
         } catch (IllegalArgumentException | IllegalStateException e) {
             log.warn("Failed to process CREATE_ROOM request for session {}: {}", session.getId(), e.getMessage());

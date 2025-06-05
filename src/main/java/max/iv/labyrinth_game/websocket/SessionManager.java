@@ -4,12 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
-import max.iv.labyrinth_game.service.game.GameService;
-import max.iv.labyrinth_game.service.game.LobbyService;
-import max.iv.labyrinth_game.service.game.RoomService;
 import max.iv.labyrinth_game.websocket.dto.ErrorMessageResponse;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -27,22 +23,15 @@ public class SessionManager{
 
     private final Map<String, WebSocketSession> authenticatedGameSessions = new ConcurrentHashMap<>();
     private final Map<UUID, String> playerIdToSessionId = new ConcurrentHashMap<>();
-    private final GameService gameService;
-    private final RoomService roomService;
-    private final GameStateBroadcaster gameStateBroadcaster;
+    private final SessionTerminationHandler terminationHandler;
     private final ObjectMapper objectMapper;
-    private final LobbyService lobbyService;
-
     public static final String PLAYER_ID_ATTRIBUTE_KEY = "playerId";
     public static final String ROOM_ID_ATTRIBUTE_KEY = "roomId";
 
     @Autowired
-    public SessionManager(GameService gameService, RoomService roomService, @Lazy GameStateBroadcaster gameStateBroadcaster, ObjectMapper objectMapper, LobbyService lobbyService) {
-        this.gameService = gameService;
-        this.roomService = roomService;
-        this.gameStateBroadcaster = gameStateBroadcaster; // Сохраняем для будущего использования
+    public SessionManager(ObjectMapper objectMapper,SessionTerminationHandler terminationHandler) {
         this.objectMapper = objectMapper;
-        this.lobbyService = lobbyService;
+        this.terminationHandler = terminationHandler;
         log.info("SessionManager initialized.");
     }
 
@@ -69,41 +58,20 @@ public class SessionManager{
 
     public void unregisterSession(WebSocketSession session) {
         if (session == null) return;
+
         String sessionId = session.getId();
-        // Удаляем сессию из активных игровых сессий
         authenticatedGameSessions.remove(sessionId);
 
         UUID playerId = (UUID) session.getAttributes().get(PLAYER_ID_ATTRIBUTE_KEY);
         String roomId = (String) session.getAttributes().get(ROOM_ID_ATTRIBUTE_KEY);
 
         if (playerId != null) {
-            playerIdToSessionId.remove(playerId); // Удаляем связь игрок -> сессия
-            log.info("Player {} (session {}) disconnected.", playerId, sessionId);
-
-            if (roomId != null) {
-                try {
-                    gameService.handlePlayerDisconnect(playerId, roomId);
-                    log.info("Notified GameService about disconnect of player {} from room {}", playerId, roomId);
-                    // Инициируем рассылку обновленного состояния комнаты
-                    if (gameStateBroadcaster != null) {
-                        gameStateBroadcaster.broadcastGameStateToRoom(roomId);
-                        lobbyService.broadcastRoomListToLobby();
-                    } else {
-                        lobbyService.removeSessionFromLobby(session);
-                        log.warn("GameStateBroadcaster is null in SessionManager, cannot broadcast after disconnect.");
-                    }
-                } catch (Exception e) {
-                    log.error("Error during player disconnect handling for player {} in room {}: {}",
-                            playerId, roomId, e.getMessage(), e);
-                }
-            } else {
-                log.warn("RoomId not found in session attributes for disconnected player {} (session {}).",
-                        playerId, sessionId);
-            }
+            playerIdToSessionId.remove(playerId);
+            terminationHandler.handleSessionTermination(session, playerId, roomId);
         } else {
-            lobbyService.removeSessionFromLobby(session);
-            log.warn("No playerId found in session attributes for closed session {}.", sessionId);
+            terminationHandler.handleSessionTermination(session, null, null);
         }
+
         log.info("Session {} fully unregistered.", sessionId);
     }
 
