@@ -7,7 +7,9 @@ import max.iv.labyrinth_game.model.game.GameRoom;
 import max.iv.labyrinth_game.model.game.Player;
 import max.iv.labyrinth_game.service.game.RoomService;
 import max.iv.labyrinth_game.websocket.dto.GameStateUpdateDTO;
+import max.iv.labyrinth_game.websocket.events.RoomStateNeedsBroadcastEvent;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -34,10 +36,34 @@ public class GameStateBroadcaster {
         log.info("GameStateBroadcaster initialized.");
     }
 
+    @EventListener
+    public void handleRoomStateNeedsBroadcast(RoomStateNeedsBroadcastEvent event) {
+        if (event == null || event.getRoomId() == null) {
+            log.warn("Received a null RoomStateNeedsBroadcastEvent or event with null roomId. Skipping broadcast.");
+            return;
+        }
+        String roomId = event.getRoomId();
+        log.info("Event received: RoomStateNeedsBroadcastEvent for room {}. Broadcasting game state.", roomId);
+        try {
+            broadcastGameStateToRoom(roomId);
+        } catch (Exception e) {
+            log.error("Error broadcasting game state for room {} in response to event: {}", roomId, e.getMessage(), e);
+        }
+    }
+
     public void broadcastGameStateToRoom(String roomId) {
+        if (roomId == null || roomId.isBlank()) {
+            log.warn("Cannot broadcast game state: roomId is null or blank.");
+            return;
+        }
         GameRoom room = roomService.getRoom(roomId);
         if (room == null) {
             log.warn("Cannot broadcast game state: room {} not found.", roomId);
+            return;
+        }
+        if (room.getPlayers() == null || room.getPlayers().isEmpty()) {
+            log.info("No players in room {} to broadcast game state to.", roomId);
+            //TODO
             return;
         }
         GameStateUpdateDTO gameStateDto = gameStateMapper.toDto(room);

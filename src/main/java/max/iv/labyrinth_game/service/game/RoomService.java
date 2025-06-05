@@ -19,8 +19,6 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class RoomService {
 
-    public static final List<String> AVAILABLE_PLAYER_COLORS = List.of("Red", "Blue", "Green", "Yellow");
-
     private final Map<String, GameRoom> gameRooms = new ConcurrentHashMap<>();
     public GameRoom createRoom(int maxPlayers,String roomName) {
         validateMaxPlayers(maxPlayers);

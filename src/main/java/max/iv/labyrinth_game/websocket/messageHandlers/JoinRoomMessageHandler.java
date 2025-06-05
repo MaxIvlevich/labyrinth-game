@@ -12,7 +12,9 @@ import max.iv.labyrinth_game.websocket.SessionManager;
 import max.iv.labyrinth_game.websocket.dto.BaseMessage;
 import max.iv.labyrinth_game.websocket.dto.GameMessageType;
 import max.iv.labyrinth_game.websocket.dto.JoinRoomRequest;
+import max.iv.labyrinth_game.websocket.events.LobbyRoomListNeedsUpdateEvent;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -25,26 +27,27 @@ import static max.iv.labyrinth_game.websocket.config.JwtAuthHandshakeInterceptor
 @Slf4j
 @Component
 public class JoinRoomMessageHandler implements WebSocketMessageHandler{
+
     private final GameService gameService;
     private final SessionManager sessionManager;
     private final GameStateBroadcaster gameStateBroadcaster;
     private final ObjectMapper objectMapper;
     private final Validator validator;
     private final LobbyService lobbyService;
-
-
+    private final ApplicationEventPublisher eventPublisher;
 
     @Autowired
     public JoinRoomMessageHandler(GameService gameService,
                                   SessionManager sessionManager,
                                   GameStateBroadcaster gameStateBroadcaster,
-                                  ObjectMapper objectMapper, Validator validator, LobbyService lobbyService) {
+                                  ObjectMapper objectMapper, Validator validator, LobbyService lobbyService, ApplicationEventPublisher eventPublisher) {
         this.gameService = gameService;
         this.sessionManager = sessionManager;
         this.gameStateBroadcaster = gameStateBroadcaster;
         this.objectMapper = objectMapper;
         this.validator = validator;
         this.lobbyService = lobbyService;
+        this.eventPublisher = eventPublisher;
     }
     @Override
     public boolean supports(BaseMessage message) {
@@ -58,7 +61,7 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler{
             sessionManager.sendErrorMessageToSession(session, "Internal server error: Invalid message type for JOIN_ROOM handler.", objectMapper);
             return;
         }
-        if (sessionManager.validateRequestAndSendError(session, request, validator, "CREATE_ROOM")) {
+        if (sessionManager.validateRequestAndSendError(session, request, validator, "JOIN_ROOM")) {
             return;
         }
         String roomId = request.getRoomId();
@@ -74,11 +77,13 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler{
                 return;
             }
             // 2. Проверяем, не пытается ли игрок присоединиться к комнате, в которой он уже есть (по ID игрока)
-            if (session.getAttributes().get(SessionManager.PLAYER_ID_ATTRIBUTE_KEY) != null) {
+            String currentRoomIdForSession = sessionManager.getRoomIdBySession(session);
+            if (currentRoomIdForSession != null) {
                 String existingRoomId = (String) session.getAttributes().get(SessionManager.ROOM_ID_ATTRIBUTE_KEY);
                 log.warn("Player {} (session {}) attempted to join room {} but is already associated with room {}.",
                         userId, session.getId(), roomId, existingRoomId);
-                sessionManager.sendErrorMessageToSession(session, "You are already in a room. Please leave it first to join another.", objectMapper);
+                sessionManager.sendErrorMessageToSession(session, "You are already in a room. Please leave it first to join another."
+                        , objectMapper);
                 return;
             }
             // 3. Создаем объект Player (без аватара, его назначит GameService)
@@ -93,8 +98,10 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler{
             log.info("Player {} (ID: {}, Avatar: {}) joined room {}. Session {} associated.",
                     userName, userId, newPlayer.getAvatar(), roomId, session.getId());
             // 7. Отправляем обновленное состояние игры всем в комнате
-            lobbyService.broadcastRoomListToLobby();
             gameStateBroadcaster.broadcastGameStateToRoom(roomId);
+            // 8. Публикуем событие для обновления списка комнат в лобби
+            log.debug("Publishing LobbyRoomListNeedsUpdateEvent after player {} joined room {}", userId, roomId);
+            eventPublisher.publishEvent(new LobbyRoomListNeedsUpdateEvent(this));
 
         } catch (IllegalArgumentException | IllegalStateException e) {
             log.warn("Failed to process JOIN_ROOM request for session {} to room {}: {}", session.getId(), roomId, e.getMessage());

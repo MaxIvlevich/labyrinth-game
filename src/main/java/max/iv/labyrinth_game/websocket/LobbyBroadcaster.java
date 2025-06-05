@@ -6,7 +6,9 @@ import max.iv.labyrinth_game.service.game.RoomService;
 import max.iv.labyrinth_game.websocket.dto.PageInfo;
 import max.iv.labyrinth_game.websocket.dto.RoomInfoDTO;
 import max.iv.labyrinth_game.websocket.dto.RoomListUpdateResponse;
+import max.iv.labyrinth_game.websocket.events.LobbyRoomListNeedsUpdateEvent;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -33,15 +35,45 @@ public class LobbyBroadcaster {
         log.info("LobbyBroadcaster initialized.");
     }
 
+    @EventListener
+    public void handleLobbyRoomListNeedsUpdate(LobbyRoomListNeedsUpdateEvent event) {
+        log.info("Event received: LobbyRoomListNeedsUpdateEvent. Broadcasting updated room list to lobby.");
+        try {
+            broadcastRoomList();
+        } catch (Exception e) {
+            log.error("Error broadcasting room list in response to event: {}", e.getMessage(), e);
+        }
+    }
+
     public void addSession(String sessionId, UUID userId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            log.warn("Attempted to add a session to lobby with null or blank sessionId.");
+            return;
+
+        }
         lobbySessions.put(sessionId, userId);
-        log.info("Added session {} with user {} to lobby.", sessionId, userId);
+        if (userId != null) {
+            log.info("Session {} (user {}) added to lobby tracking.", sessionId, userId);
+        } else {
+            log.info("Session {} (user not yet identified) added to lobby tracking.", sessionId);
+        }
+
+
     }
 
     public void removeSession(String sessionId) {
+        if (sessionId == null) return;
         UUID removed = lobbySessions.remove(sessionId);
         if (removed != null) {
-            log.info("Removed session {} (user {}) from lobby.", sessionId, removed);
+            log.info("Session {} (user {}) removed from lobby tracking.", sessionId, removed);
+        } else {
+            // Проверяем, была ли сессия без userId вообще в мапе
+            if (lobbySessions.containsKey(sessionId)) {
+                lobbySessions.remove(sessionId);
+                log.info("Session {} (no specific user ID) removed from lobby tracking.", sessionId);
+            } else {
+                log.debug("Session {} was not in lobby tracking to be removed.", sessionId);
+            }
         }
     }
 
@@ -51,7 +83,7 @@ public class LobbyBroadcaster {
         RoomListUpdateResponse payload = new RoomListUpdateResponse(roomList, pageDetails);
 
         for (String sessionId : new HashSet<>(lobbySessions.keySet())) {
-            WebSocketSession session = sessionManager.getAuthenticatedGameSessionById(sessionId);
+            WebSocketSession session = sessionManager.getActiveSessionById(sessionId);
             if (session != null && session.isOpen()) {
                 sessionManager.sendMessageToSession(session, payload, objectMapper);
             } else {
@@ -97,17 +129,5 @@ public class LobbyBroadcaster {
 
         sessionManager.sendMessageToSession(session, payload, objectMapper);
         log.info("Sent room list to session {}", session.getId());
-    }
-
-    public void broadcastRoomListToAll(Collection<WebSocketSession> sessions) {
-        List<RoomInfoDTO> roomList = roomService.getAllRoomsInfo(0, 8);
-        PageInfo pageInfo = new PageInfo(0, 8, 1, roomList.size());
-        RoomListUpdateResponse payload = new RoomListUpdateResponse(roomList, pageInfo);
-
-        for (WebSocketSession session : sessions) {
-            if (session != null && session.isOpen()) {
-                sessionManager.sendMessageToSession(session, payload, objectMapper);
-            }
-        }
     }
 }

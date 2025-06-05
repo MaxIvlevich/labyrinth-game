@@ -22,9 +22,11 @@ public class LobbyService {
     }
 
     public void addSessionToLobby(WebSocketSession session, UUID userId) {
-        if (session == null || userId == null) return;
+        if (session == null ) return;
         if (!broadcaster.containsSession(session.getId())) {
             broadcaster.addSession(session.getId(), userId);
+        }else {
+            log.debug("Session {} already in lobby tracking. Not adding again via LobbyService.", session.getId());
         }
     }
 

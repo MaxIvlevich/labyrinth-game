@@ -22,11 +22,14 @@ import java.util.stream.Collectors;
 public class SessionManager{
 
     private final Map<String, WebSocketSession> authenticatedGameSessions = new ConcurrentHashMap<>();
+    private final Map<String, WebSocketSession> allActiveSessions = new ConcurrentHashMap<>();
     private final Map<UUID, String> playerIdToSessionId = new ConcurrentHashMap<>();
     private final SessionTerminationHandler terminationHandler;
     private final ObjectMapper objectMapper;
     public static final String PLAYER_ID_ATTRIBUTE_KEY = "playerId";
     public static final String ROOM_ID_ATTRIBUTE_KEY = "roomId";
+    public static final String USER_ID_ATTRIBUTE_KEY = "userId";
+    public static final String USER_NAME_ATTRIBUTE_KEY = "userName";
 
     @Autowired
     public SessionManager(ObjectMapper objectMapper,SessionTerminationHandler terminationHandler) {
@@ -36,7 +39,12 @@ public class SessionManager{
     }
 
     public void registerSession(WebSocketSession session) {
-        log.debug("Session {} connected, awaiting game association.", session.getId());
+        if (session == null) {
+            log.warn("Attempted to register a null session.");
+            return;
+        }
+        allActiveSessions.put(session.getId(), session);
+        log.info("Session {} connected and registered. Total active sessions: {}", session.getId(), allActiveSessions.size());
     }
 
     public void associatePlayerWithSession(WebSocketSession session, UUID playerId, String roomId) {
@@ -46,7 +54,13 @@ public class SessionManager{
             return;
         }
         String sessionId = session.getId();
-
+        if (!allActiveSessions.containsKey(sessionId) || !allActiveSessions.get(sessionId).isOpen()) {
+            log.warn("Attempted to associate a session {} that is not active or not registered. Aborting association.", sessionId);
+            if (allActiveSessions.containsKey(sessionId) && !allActiveSessions.get(sessionId).isOpen()) {
+                allActiveSessions.remove(sessionId);
+            }
+            return;
+        }
         session.getAttributes().put(PLAYER_ID_ATTRIBUTE_KEY, playerId);
         session.getAttributes().put(ROOM_ID_ATTRIBUTE_KEY, roomId);
 
@@ -57,9 +71,13 @@ public class SessionManager{
     }
 
     public void unregisterSession(WebSocketSession session) {
-        if (session == null) return;
+        if (session == null) {
+            log.warn("Attempted to unregister a null session.");
+            return;
+        }
 
         String sessionId = session.getId();
+        allActiveSessions.remove(sessionId);
         authenticatedGameSessions.remove(sessionId);
 
         UUID playerId = (UUID) session.getAttributes().get(PLAYER_ID_ATTRIBUTE_KEY);
@@ -72,7 +90,8 @@ public class SessionManager{
             terminationHandler.handleSessionTermination(session, null, null);
         }
 
-        log.info("Session {} fully unregistered.", sessionId);
+        log.info("Session {} unregistered. Total active sessions: {}, Authenticated game sessions: {}",
+                sessionId, allActiveSessions.size(), authenticatedGameSessions.size());
     }
 
     public void handleTransportError(WebSocketSession session, Throwable exception) {
@@ -110,7 +129,7 @@ public class SessionManager{
     }
 
     public Map<String, WebSocketSession> getAuthenticatedGameSessions() {
-        return authenticatedGameSessions;
+        return new ConcurrentHashMap<>(authenticatedGameSessions);
     }
 
     public void sendMessageToSession(WebSocketSession session, Object payload, ObjectMapper objectMapper) {
@@ -159,29 +178,66 @@ public class SessionManager{
 
     public WebSocketSession getAuthenticatedGameSessionById(String sessionId) {
         if (sessionId == null || sessionId.isBlank()) {
-            log.warn("Attempted to get session with null or blank sessionId.");
+            log.trace("Attempted to get authenticated game session with null or blank sessionId.");
             return null;
         }
-        WebSocketSession session = authenticatedGameSessions.get(sessionId);
-        if (session != null && session.isOpen()) {
-            return session;
-        } else if (session != null) { // Сессия найдена, но закрыта
-            log.warn("Session {} found but is not open. Removing stale entry from authenticatedGameSessions.", sessionId);
+        // Сначала проверяем в общем пуле активных сессий, чтобы не работать с закрытыми
+        WebSocketSession activeSession = getActiveSessionById(sessionId);
+        if (activeSession == null) {
+            // Если ее нет даже в общем пуле активных, то и в authenticatedGameSessions ее быть не должно (или она устарела)
+            if(authenticatedGameSessions.containsKey(sessionId)){
+                log.warn("Session {} found in authenticatedGameSessions but not in allActiveSessions. Cleaning up authenticatedGameSessions.", sessionId);
+                authenticatedGameSessions.remove(sessionId);
+                // playerIdToSessionId также нужно почистить, если такое возможно
+            }
+            return null;
+        }
+        // Теперь проверяем, есть ли эта активная сессия в списке аутентифицированных
+        WebSocketSession gameSession = authenticatedGameSessions.get(sessionId);
+        if (gameSession != null && gameSession.isOpen()) { // Убеждаемся, что это та же сессия и она открыта
+            return gameSession;
+        } else if (gameSession != null) { // Найдена, но закрыта
+            log.warn("Session {} found in authenticatedGameSessions but is not open. Removing stale entry.", sessionId);
             authenticatedGameSessions.remove(sessionId);
-            // Также нужно очистить обратную связь playerIdToSessionId, если она была
-            UUID playerId = getPlayerIdBySessionInternal(session);
+            UUID playerId = getPlayerIdBySessionInternal(gameSession);
             if (playerId != null) {
                 playerIdToSessionId.remove(playerId, sessionId);
             }
             return null;
         }
-        log.trace("No authenticated game session found for sessionId: {}", sessionId);
+        // Сессия активна, но не аутентифицирована для игры
+        log.trace("Session {} is active but not found in authenticatedGameSessions.", sessionId);
         return null;
-
     }
 
     private UUID getPlayerIdBySessionInternal(WebSocketSession session) {
         if (session == null) return null;
         return (UUID) session.getAttributes().get(PLAYER_ID_ATTRIBUTE_KEY);
     }
+
+    public WebSocketSession getActiveSessionById(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            log.trace("Attempted to get active session with null or blank sessionId.");
+            return null;
+        }
+        WebSocketSession session = allActiveSessions.get(sessionId);
+        if (session != null && session.isOpen()) {
+            return session;
+        } else if (session != null) { // Сессия есть в мапе, но закрыта
+            log.warn("Session {} found in allActiveSessions but is not open. Cleaning up.", sessionId);
+            allActiveSessions.remove(sessionId); // Удаляем устаревшую запись
+            if (authenticatedGameSessions.containsKey(sessionId)) {
+                authenticatedGameSessions.remove(sessionId);
+                UUID playerId = getPlayerIdBySessionInternal(session); // Внутренний метод для получения playerId из атрибутов
+                if (playerId != null) {
+                    playerIdToSessionId.remove(playerId, sessionId); // Удаляем конкретную пару
+                }
+                log.warn("Also removed stale session {} from authenticatedGameSessions.", sessionId);
+            }
+            return null;
+        }
+        log.trace("No active session found in allActiveSessions for sessionId: {}", sessionId);
+        return null;
+    }
+
 }

@@ -1,10 +1,7 @@
 package max.iv.labyrinth_game.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
-
-
 import max.iv.labyrinth_game.dto.auth.JSONMessageToFront;
 import max.iv.labyrinth_game.service.game.LobbyService;
 import max.iv.labyrinth_game.websocket.dto.BaseMessage;
