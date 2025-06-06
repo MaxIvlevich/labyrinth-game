@@ -19,17 +19,19 @@ public class SessionTerminationHandler {
 
     public SessionTerminationHandler(GameService gameService,
                                      LobbyService lobbyService,
-                                     GameStateBroadcaster gameStateBroadcaster, ApplicationEventPublisher eventPublisher) {
+                                     ApplicationEventPublisher eventPublisher) {
         this.gameService = gameService;
         this.lobbyService = lobbyService;
         this.eventPublisher = eventPublisher;
     }
 
     public void handleSessionTermination(WebSocketSession session, UUID playerId, String roomId) {
+        String sessionId = session.getId();
         if (playerId == null) {
             // Игрок не был авторизован — просто удалим из лобби
             lobbyService.removeSessionFromLobby(session);
             log.info("Unauthenticated session {} removed from lobby", session.getId());
+            eventPublisher.publishEvent(new LobbyRoomListNeedsUpdateEvent(this));
             return;
         }
         // Игрок был аутентифицирован (имеет playerId)
