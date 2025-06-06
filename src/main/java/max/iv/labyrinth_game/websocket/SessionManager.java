@@ -80,7 +80,7 @@ public class SessionManager{
         allActiveSessions.remove(sessionId);
         authenticatedGameSessions.remove(sessionId);
 
-        UUID playerId = (UUID) session.getAttributes().get(PLAYER_ID_ATTRIBUTE_KEY);
+        UUID playerId = (UUID) session.getAttributes().get(USER_ID_ATTRIBUTE_KEY);
         String roomId = (String) session.getAttributes().get(ROOM_ID_ATTRIBUTE_KEY);
 
         if (playerId != null) {
@@ -120,7 +120,7 @@ public class SessionManager{
 
     public UUID getPlayerIdBySession(WebSocketSession session) {
         if (session == null) return null;
-        return (UUID) session.getAttributes().get(PLAYER_ID_ATTRIBUTE_KEY);
+        return (UUID) session.getAttributes().get(USER_ID_ATTRIBUTE_KEY);
     }
 
     public String getRoomIdBySession(WebSocketSession session) {

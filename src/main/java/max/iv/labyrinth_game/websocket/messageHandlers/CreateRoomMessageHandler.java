@@ -14,6 +14,7 @@ import max.iv.labyrinth_game.websocket.dto.CreateRoomRequest;
 import max.iv.labyrinth_game.websocket.dto.GameMessageType;
 import max.iv.labyrinth_game.websocket.dto.RoomCreatedResponse;
 import max.iv.labyrinth_game.websocket.events.lobby.LobbyRoomListNeedsUpdateEvent;
+import max.iv.labyrinth_game.websocket.events.lobby.PlayerNeedsRemovalFromLobbyEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
@@ -90,6 +91,9 @@ public class CreateRoomMessageHandler implements WebSocketMessageHandler{
             GameRoom roomWithCreator = gameService.addPlayerToRoom(roomId, creator);
             // 4. Ассоциируем WebSocket сессию с ID игрока и ID комнаты
             sessionManager.associatePlayerWithSession(session, userId, roomId);
+            //Удаляем создателя из списка лобби, так как он теперь в комнате
+            log.debug("Publishing PlayerNeedsRemovalFromLobbyEvent for creator {} who entered room {}", userId, roomId);
+            eventPublisher.publishEvent(new PlayerNeedsRemovalFromLobbyEvent(this, userId));
             // 5. Формируем и отправляем ответ клиенту
             RoomCreatedResponse response = new RoomCreatedResponse(roomId, userId);
             sessionManager.sendMessageToSession(session, response, objectMapper);

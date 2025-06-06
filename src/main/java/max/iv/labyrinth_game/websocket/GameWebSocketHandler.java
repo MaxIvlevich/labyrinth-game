@@ -48,8 +48,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                     "Welcome to Labyrinth Game! Please create or join a room.");
             sessionManager.sendMessageToSession(session, welcomeMsg, objectMapper);
 
-            UUID userId = (UUID) session.getAttributes().get(SessionManager.PLAYER_ID_ATTRIBUTE_KEY);
-            String userName = (String) session.getAttributes().get(SessionManager.ROOM_ID_ATTRIBUTE_KEY);
+            UUID userId = (UUID) session.getAttributes().get(SessionManager.USER_ID_ATTRIBUTE_KEY);
+            String userName = (String) session.getAttributes().get(SessionManager.USER_NAME_ATTRIBUTE_KEY);
 
             if (userId != null && userName != null) {
                 lobbyService.addSessionToLobby(session, userId);
