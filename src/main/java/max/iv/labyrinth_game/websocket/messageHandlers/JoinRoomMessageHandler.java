@@ -6,13 +6,13 @@ import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.model.game.Base;
 import max.iv.labyrinth_game.model.game.Player;
 import max.iv.labyrinth_game.service.game.GameService;
-import max.iv.labyrinth_game.service.game.LobbyService;
 import max.iv.labyrinth_game.websocket.GameStateBroadcaster;
 import max.iv.labyrinth_game.websocket.SessionManager;
 import max.iv.labyrinth_game.websocket.dto.BaseMessage;
 import max.iv.labyrinth_game.websocket.dto.GameMessageType;
 import max.iv.labyrinth_game.websocket.dto.JoinRoomRequest;
-import max.iv.labyrinth_game.websocket.events.LobbyRoomListNeedsUpdateEvent;
+import max.iv.labyrinth_game.websocket.events.lobby.LobbyRoomListNeedsUpdateEvent;
+import max.iv.labyrinth_game.websocket.events.lobby.PlayerNeedsRemovalFromLobbyEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
@@ -26,29 +26,30 @@ import static max.iv.labyrinth_game.websocket.config.JwtAuthHandshakeInterceptor
 
 @Slf4j
 @Component
-public class JoinRoomMessageHandler implements WebSocketMessageHandler{
+public class JoinRoomMessageHandler implements WebSocketMessageHandler {
 
     private final GameService gameService;
     private final SessionManager sessionManager;
     private final GameStateBroadcaster gameStateBroadcaster;
     private final ObjectMapper objectMapper;
     private final Validator validator;
-    private final LobbyService lobbyService;
     private final ApplicationEventPublisher eventPublisher;
 
     @Autowired
     public JoinRoomMessageHandler(GameService gameService,
                                   SessionManager sessionManager,
                                   GameStateBroadcaster gameStateBroadcaster,
-                                  ObjectMapper objectMapper, Validator validator, LobbyService lobbyService, ApplicationEventPublisher eventPublisher) {
+                                  ObjectMapper objectMapper,
+                                  Validator validator,
+                                  ApplicationEventPublisher eventPublisher) {
         this.gameService = gameService;
         this.sessionManager = sessionManager;
         this.gameStateBroadcaster = gameStateBroadcaster;
         this.objectMapper = objectMapper;
         this.validator = validator;
-        this.lobbyService = lobbyService;
         this.eventPublisher = eventPublisher;
     }
+
     @Override
     public boolean supports(BaseMessage message) {
         return message != null && message.getType() == GameMessageType.JOIN_ROOM;
@@ -92,7 +93,8 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler{
             gameService.addPlayerToRoom(roomId, newPlayer);
             // 5. Ассоциируем WebSocket сессию с ID игрока и ID комнаты
             sessionManager.associatePlayerWithSession(session, userId, roomId);
-            lobbyService.removePlayerFromLobby(userId);
+            log.debug("Publishing PlayerNeedsRemovalFromLobbyEvent for player {} who joined room {}", userId, roomId);
+            eventPublisher.publishEvent(new PlayerNeedsRemovalFromLobbyEvent(this, userId));
             // 6. Отправляем подтверждение присоединения этому клиенту
             sessionManager.sendMessageToSession(session, new BaseMessage(GameMessageType.JOIN_SUCCESS), objectMapper);
             log.info("Player {} (ID: {}, Avatar: {}) joined room {}. Session {} associated.",

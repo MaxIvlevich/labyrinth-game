@@ -2,9 +2,10 @@ package max.iv.labyrinth_game.websocket;
 
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.service.game.GameService;
-import max.iv.labyrinth_game.service.game.LobbyService;
-import max.iv.labyrinth_game.websocket.events.LobbyRoomListNeedsUpdateEvent;
-import max.iv.labyrinth_game.websocket.events.RoomStateNeedsBroadcastEvent;
+import max.iv.labyrinth_game.websocket.events.lobby.LobbyRoomListNeedsUpdateEvent;
+import max.iv.labyrinth_game.websocket.events.lobby.PlayerNeedsRemovalFromLobbyEvent;
+import max.iv.labyrinth_game.websocket.events.lobby.RoomStateNeedsBroadcastEvent;
+import max.iv.labyrinth_game.websocket.events.lobby.SessionNeedsRemovalFromLobbyEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
@@ -14,23 +15,21 @@ import java.util.UUID;
 @Component
 public class SessionTerminationHandler {
     private final GameService gameService;
-    private final LobbyService lobbyService;
     private final ApplicationEventPublisher eventPublisher;
 
     public SessionTerminationHandler(GameService gameService,
-                                     LobbyService lobbyService,
                                      ApplicationEventPublisher eventPublisher) {
         this.gameService = gameService;
-        this.lobbyService = lobbyService;
         this.eventPublisher = eventPublisher;
     }
 
     public void handleSessionTermination(WebSocketSession session, UUID playerId, String roomId) {
         String sessionId = session.getId();
         if (playerId == null) {
-            // Игрок не был авторизован — просто удалим из лобби
-            lobbyService.removeSessionFromLobby(session);
-            log.info("Unauthenticated session {} removed from lobby", session.getId());
+            log.info("Handling termination for unauthenticated session {}", sessionId);
+            log.debug("Publishing SessionNeedsRemovalFromLobbyEvent for session {}", sessionId);
+            eventPublisher.publishEvent(new SessionNeedsRemovalFromLobbyEvent(this, sessionId));
+            log.debug("Publishing LobbyRoomListNeedsUpdateEvent for unauthenticated session {} termination.", sessionId);
             eventPublisher.publishEvent(new LobbyRoomListNeedsUpdateEvent(this));
             return;
         }
@@ -47,9 +46,12 @@ public class SessionTerminationHandler {
                 log.debug("Publishing LobbyRoomListNeedsUpdateEvent due to player disconnect from room");
                 eventPublisher.publishEvent(new LobbyRoomListNeedsUpdateEvent(this));
             } else {
-                log.info("Player {} not in room, only removing from lobby", playerId);
-                lobbyService.removePlayerFromLobby(playerId);
+                log.info("Player {} (session {}) was authenticated but not in a room. Initiating removal from lobby tracking.", playerId, sessionId);
+                log.debug("Publishing PlayerNeedsRemovalFromLobbyEvent for player {}", playerId);
+                // Публикуем событие
+                eventPublisher.publishEvent(new PlayerNeedsRemovalFromLobbyEvent(this, playerId));
                 log.debug("Publishing LobbyRoomListNeedsUpdateEvent due to player removal from lobby");
+                // Публикуем событие
                 eventPublisher.publishEvent(new LobbyRoomListNeedsUpdateEvent(this));
             }
         } catch (Exception e) {

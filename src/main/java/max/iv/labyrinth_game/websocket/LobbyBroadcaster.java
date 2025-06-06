@@ -6,13 +6,12 @@ import max.iv.labyrinth_game.service.game.RoomService;
 import max.iv.labyrinth_game.websocket.dto.PageInfo;
 import max.iv.labyrinth_game.websocket.dto.RoomInfoDTO;
 import max.iv.labyrinth_game.websocket.dto.RoomListUpdateResponse;
-import max.iv.labyrinth_game.websocket.events.LobbyRoomListNeedsUpdateEvent;
+import max.iv.labyrinth_game.websocket.events.lobby.LobbyRoomListNeedsUpdateEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;

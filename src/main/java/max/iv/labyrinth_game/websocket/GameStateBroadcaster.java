@@ -7,7 +7,7 @@ import max.iv.labyrinth_game.model.game.GameRoom;
 import max.iv.labyrinth_game.model.game.Player;
 import max.iv.labyrinth_game.service.game.RoomService;
 import max.iv.labyrinth_game.websocket.dto.GameStateUpdateDTO;
-import max.iv.labyrinth_game.websocket.events.RoomStateNeedsBroadcastEvent;
+import max.iv.labyrinth_game.websocket.events.lobby.RoomStateNeedsBroadcastEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
