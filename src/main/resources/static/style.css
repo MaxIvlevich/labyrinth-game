@@ -7,6 +7,12 @@ body {
     padding: 20px;
     background-color: #f0f0f0;
 }
+:root {
+    --cell-size: 40px; /* Уменьшил для примера */
+    --cell-border-color: #ccc;
+    --stationary-cell-bg: #e0e0e0;
+    --board-border-color: #333;
+}
 
 header, footer {
     text-align: center;
@@ -30,19 +36,28 @@ main {
 }
 
 #game-board-container {
-    border: 2px solid #333;
-    display: grid; /* Мы будем использовать grid для отображения ячеек */
-    /* Размеры будут установлены JS в зависимости от размера доски */
+    border: 2px solid var(--board-border-color);
+    display: grid;
     background-color: #fff;
+    margin-top: 20px;
 }
 
-/* Стили для ячеек и тайлов (добавим позже) */
+/* Стили для ячеек и тайлов */
 .cell {
-    border: 1px solid #ccc;
+    width: var(--cell-size);
+    height: var(--cell-size);
+    border: 1px solid var(--cell-border-color);
     display: flex;
     justify-content: center;
     align-items: center;
-    box-sizing: border-box; /* Чтобы padding и border не увеличивали размер */
+    box-sizing: border-box; /* Важно, чтобы border не увеличивал фактический размер */
+    font-size: 0.6em;   /* Для отображения координат */
+    text-align: center;
+    overflow: hidden; /* Если содержимое больше ячейки */
+    position: relative;
+}
+.cell.stationary {
+    background-color: var(--stationary-cell-bg);
 }
 
 #extra-tile-container {
@@ -75,4 +90,40 @@ main {
     padding: 5px;
     font-size: 0.8em;
     white-space: pre-wrap; /* Чтобы переносились строки в логах */
+}
+.tile-info { /* Для отображения типа тайла */
+    font-size: 0.9em;
+    font-weight: bold;
+}
+
+.marker-info { /* Для отображения ID маркера */
+    font-size: 0.7em;
+    margin-top: 2px;
+    padding: 1px 3px;
+    border-radius: 3px;
+}
+.tile-marker { background-color: rgba(144, 238, 144, 0.7); } /* Светло-зеленый для маркера на тайле */
+.stationary-marker { background-color: rgba(173, 216, 230, 0.7); } /* Светло-голубой для стационарного */
+
+
+#extra-tile-display {
+    width: var(--cell-size);
+    height: var(--cell-size);
+    border: 2px dashed #555;
+    margin: 5px auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: #f9f9f9;
+}
+.player-piece {
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0 0 2px black;
+    transition: left 0.3s ease-in-out, top 0.3s ease-in-out;
 }
