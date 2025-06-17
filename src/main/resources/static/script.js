@@ -1,4 +1,4 @@
-/ ================= ИНИЦИАЛИЗАЦИЯ И ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ =================
+// ================= ИНИЦИАЛИЗАЦИЯ И ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ =================
 // DOM элементы (получаем их один раз)
 const domElements = {
     gameStatus: document.getElementById('game-status'),
@@ -52,7 +52,58 @@ function redirectToLogin(reason = "Authentication required.") {
     }
     window.location.replace('/login.html');
 }
+async function getUserProfile() {
+    try {
+        const response = await fetchWithAuth('/api/users/me', { method: 'GET' });
+        if (!response.ok) {
+            // Обработка других ошибок (404, 500 и т.д.)
+            throw new Error('Failed to load profile');
+        }
+        const profileData = await response.json();
+        console.log(profileData);
+    } catch (e) {
+        console.error(e);
+    }
+}
 
+async function fetchWithAuth(url, options = {}) {
+    const token = localStorage.getItem('accessToken');
+
+    // Убедимся, что options.headers существует
+    if (!options.headers) {
+        options.headers = {};
+    }
+
+    // Добавляем токен в заголовок, если он есть
+    if (token) {
+        options.headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // Добавляем Content-Type по умолчанию для POST/PUT, если не указан
+    if ((options.method === 'POST' || options.method === 'PUT') && !options.headers['Content-Type'] && options.body) {
+        options.headers['Content-Type'] = 'application/json';
+    }
+
+
+    try {
+        const response = await fetch(url, options);
+
+        // Если токен невалиден, сервер вернет 401
+        if (response.status === 401) {
+            logToPageAndConsole('Client Auth', 'Token is invalid or expired. Redirecting to login.');
+            redirectToLogin('Your session has expired. Please log in again.');
+            // Возвращаем "пустой" промис, чтобы вызывающий код не пытался обработать ошибку
+            return new Promise(() => {});
+        }
+
+        return response;
+
+    } catch (error) {
+        logToPageAndConsole('Client Error', `Network error on fetch to ${url}`, error);
+        // Можно показать сообщение об ошибке сети
+        throw error;
+    }
+}
 // ================= WEBSOCKET УПРАВЛЕНИЕ =================
 function initializeWebSocket(token) {
     if (!token) {
@@ -273,8 +324,9 @@ function renderExtraTile(extraTileData) {
 
 // ================= ИНИЦИАЛИЗАЦИЯ СТРАНИЦЫ =================
 document.addEventListener('DOMContentLoaded', () => {
+    const accessToken = localStorage.getItem('accessToken');
     logToPageAndConsole('System', "DOMContentLoaded for index.html.");
-    localAccessToken = localStorage.getItem('accessToken');
+    localAccessToken = accessToken ;
     localUserId = localStorage.getItem('userId');
 
     if (domElements.playerId && localUserId) {

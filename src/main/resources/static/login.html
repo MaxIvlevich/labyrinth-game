@@ -41,22 +41,25 @@
 
 <script>
     const loginForm = document.getElementById('loginForm');
-    const usernameOrEmailInput = document.getElementById('usernameOrEmail');
-    const passwordInput = document.getElementById('password');
+
     const errorMessageDiv = document.getElementById('errorMessage');
 
     loginForm.addEventListener('submit', async function(event) {
         event.preventDefault();
         errorMessageDiv.textContent = '';
 
-        const usernameOrEmail = usernameOrEmailInput.value;
-        const password = passwordInput.value;
+        const emailValue = document.getElementById('usernameOrEmail').value;
+        const passwordValue = document.getElementById('password').value;
 
-
-        if (!usernameOrEmail || !password) {
+        if (!emailValue || !passwordValue) {
             errorMessageDiv.textContent = 'Пожалуйста, заполните все поля.';
             return;
         }
+
+        const loginDataPayload = {
+            usernameOrEmail: emailValue,
+            password: passwordValue
+        };
 
         try {
             const response = await fetch('/api/auth/login', {
@@ -64,29 +67,49 @@
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ usernameOrEmail, password })
+                body: JSON.stringify(loginDataPayload)
             });
 
-            const responseData = await response.json();
+            // Пытаемся получить JSON из тела ответа.
+            // response.json() автоматически парсит JSON и выбрасывает ошибку, если это не JSON.
+            const data = await response.json();
 
-            if (response.ok) { // Статус 200-299
-                console.log('Login successful:', responseData);
-                // Сохраняем токены. Ваш JwtResponse содержит accessToken и refreshToken
-                if (responseData.accessToken) {
-                    localStorage.setItem('accessToken', responseData.accessToken);
+            console.log("Server response status:", response.status);
+            console.log("Parsed server response data:", data);
+
+            // Проверяем, был ли ответ успешным (статус 200-299)
+            if (response.ok) {
+
+                // Проверяем, есть ли в ответе accessToken
+                if (data && data.accessToken) {
+                    console.log('Login successful! Saving tokens...');
+
+                    // Сохраняем все данные в localStorage
+                    localStorage.setItem('accessToken', data.accessToken);
+                    localStorage.setItem('refreshToken', data.refreshToken);
+                    localStorage.setItem('userId', data.userId);
+                    localStorage.setItem('username', data.username);
+
+                    // Перенаправляем на главную страницу
+                    window.location.href = '/index.html';
+
+                } else {
+                    // Сервер вернул 200 OK, но в теле ответа нет токена. Это странно.
+                    errorMessageDiv.textContent = 'Ошибка входа: не удалось получить токен от сервера.';
+                    console.error('Login failed: accessToken was expected but not found in response data.', data);
                 }
-                if (responseData.refreshToken) {
-                    localStorage.setItem('refreshToken', responseData.refreshToken);
-                }
-                window.location.href = '/';
+
             } else {
-                errorMessageDiv.textContent = responseData.message || `Ошибка входа (статус: ${response.status})`;
-                console.error('Login failed:', responseData);
+                // Если статус не ok (например, 401, 400, 500)
+                // В переменной 'data' будет тело ошибки от сервера (например, { "message": "Bad credentials" })
+                errorMessageDiv.textContent = data.message || `Ошибка: ${response.statusText}`;
+                console.error('Login failed:', data);
             }
+
         } catch (error) {
-            // Сетевая ошибка или проблема с JSON.parse, если ответ не JSON
-            errorMessageDiv.textContent = 'Произошла ошибка при попытке входа. Пожалуйста, попробуйте позже.';
-            console.error('Login request error:', error);
+            // Эта ошибка сработает, если есть проблема с сетью ИЛИ если ответ сервера - не JSON
+            errorMessageDiv.textContent = 'Произошла ошибка сети или ответа от сервера.';
+            console.error('Login request fatal error:', error);
         }
     });
 </script>

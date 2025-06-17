@@ -32,6 +32,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
 
     public JwtResponse loginUser(LoginRequest loginRequest) {
+        log.info("AuthService: Attempting to authenticate user: {}", loginRequest.usernameOrEmail());
+        log.info("AuthService: Password present: {}", loginRequest.password() != null && !loginRequest.password().isBlank());
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         loginRequest.usernameOrEmail(),

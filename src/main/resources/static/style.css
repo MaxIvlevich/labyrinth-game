@@ -1,129 +1,75 @@
-body {
-    font-family: sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+/* Сброс стандартных стилей и настройка базовой модели */
+* {
     margin: 0;
-    padding: 20px;
-    background-color: #f0f0f0;
-}
-:root {
-    --cell-size: 40px; /* Уменьшил для примера */
-    --cell-border-color: #ccc;
-    --stationary-cell-bg: #e0e0e0;
-    --board-border-color: #333;
-}
-
-header, footer {
-    text-align: center;
-    margin-bottom: 20px;
-}
-
-main {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px; /* Пространство между основными блоками */
-}
-
-#game-info p {
-    margin: 5px 0;
-    font-size: 0.9em;
-}
-
-#game-info span {
-    font-weight: bold;
-}
-
-#game-board-container {
-    border: 2px solid var(--board-border-color);
-    display: grid;
-    background-color: #fff;
-    margin-top: 20px;
-}
-
-/* Стили для ячеек и тайлов */
-.cell {
-    width: var(--cell-size);
-    height: var(--cell-size);
-    border: 1px solid var(--cell-border-color);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    box-sizing: border-box; /* Важно, чтобы border не увеличивал фактический размер */
-    font-size: 0.6em;   /* Для отображения координат */
-    text-align: center;
-    overflow: hidden; /* Если содержимое больше ячейки */
-    position: relative;
-}
-.cell.stationary {
-    background-color: var(--stationary-cell-bg);
-}
-
-#extra-tile-container {
-    border: 1px dashed #777;
-    padding: 10px;
-    text-align: center;
-}
-
-#extra-tile-display {
-    width: 50px; /* Примерный размер */
-    height: 50px;
-    border: 1px solid #333;
-    margin: 5px auto;
-    background-color: #e0e0e0; /* Заглушка */
-}
-
-#server-messages {
-    width: 80%;
-    max-width: 600px;
-    margin-top: 20px;
-    border: 1px solid #ddd;
-    padding: 10px;
-    background-color: #fff;
-}
-
-#log-output {
-    max-height: 200px;
-    overflow-y: auto;
-    border: 1px solid #eee;
-    padding: 5px;
-    font-size: 0.8em;
-    white-space: pre-wrap; /* Чтобы переносились строки в логах */
-}
-.tile-info { /* Для отображения типа тайла */
-    font-size: 0.9em;
-    font-weight: bold;
-}
-
-.marker-info { /* Для отображения ID маркера */
-    font-size: 0.7em;
-    margin-top: 2px;
-    padding: 1px 3px;
-    border-radius: 3px;
-}
-.tile-marker { background-color: rgba(144, 238, 144, 0.7); } /* Светло-зеленый для маркера на тайле */
-.stationary-marker { background-color: rgba(173, 216, 230, 0.7); } /* Светло-голубой для стационарного */
-
-
-#extra-tile-display {
-    width: var(--cell-size);
-    height: var(--cell-size);
-    border: 2px dashed #555;
-    margin: 5px auto;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    background-color: #f9f9f9;
-}
-.player-piece {
+    padding: 0;
     box-sizing: border-box;
+}
+
+body {
+    font-family: 'Roboto', sans-serif;
+    color: #333;
+
+    /* --- ФОНОВОЕ ИЗОБРАЖЕНИЕ --- */
+    /* Замени 'background.jpg' на путь к своему изображению */
+    /* Я взял бесплатное изображение для примера */
+    background-image: url('https://www.transparenttextures.com/patterns/cubes.png');
+    background-color: #e8e8e8; /* Цвет фона, если картинка не загрузится */
+    background-size: cover; /* Растягиваем на весь экран */
+    background-position: center;
+    background-attachment: fixed; /* Фон не прокручивается */
+
     display: flex;
     justify-content: center;
     align-items: center;
-    font-weight: bold;
-    color: white;
-    text-shadow: 0 0 2px black;
-    transition: left 0.3s ease-in-out, top 0.3s ease-in-out;
+    min-height: 100vh;
+}
+
+/* Обертка для всей страницы, чтобы контент не прилипал к краям */
+.page-wrapper {
+    width: 90%;
+    max-width: 1200px;
+    background-color: rgba(255, 255, 255, 0.9); /* Полупрозрачный белый фон */
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    padding: 20px 40px;
+    backdrop-filter: blur(5px); /* Эффект "матового стекла" для современных браузеров */
+    border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* Стили для "шапки" сайта */
+.main-header {
+    text-align: center;
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #ddd;
+}
+
+.logo {
+    width: 80px; /* Размер логотипа */
+    height: 80px;
+    margin-bottom: 10px;
+    /* --- ПРОСТАЯ АНИМАЦИЯ --- */
+    animation: float-animation 3s ease-in-out infinite;
+}
+
+h1 {
+    font-size: 2.5em;
+    color: #444;
+}
+
+/* Стили для "подвала" сайта */
+.main-footer {
+    text-align: center;
+    padding-top: 20px;
+    margin-top: 20px;
+    border-top: 1px solid #eee;
+    font-size: 0.9em;
+    color: #777;
+}
+
+/* --- Ключевые кадры для анимации логотипа --- */
+@keyframes float-animation {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0); }
 }

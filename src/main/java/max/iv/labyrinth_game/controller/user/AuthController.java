@@ -9,15 +9,18 @@ import max.iv.labyrinth_game.dto.auth.MessageResponse;
 import max.iv.labyrinth_game.dto.auth.SignupRequest;
 import max.iv.labyrinth_game.service.auth.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+
+
 @Slf4j
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -33,6 +36,10 @@ public class AuthController {
         try {
             JwtResponse jwtResponse = authService.loginUser(loginRequest);
             return ResponseEntity.ok(jwtResponse);
+        } catch (AuthenticationException e) {
+            log.warn("Login failed for {}: {}", loginRequest.usernameOrEmail(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED) // 401
+                    .body(new MessageResponse("Error: Invalid username or password."));
         } catch (Exception e) {
             log.warn("Login failed for user {}: {}", loginRequest.usernameOrEmail(), e.getMessage());
             return ResponseEntity.status(401).body(new MessageResponse("Error: Invalid credentials."));
