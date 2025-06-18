@@ -14,6 +14,7 @@ import max.iv.labyrinth_game.service.game.actions.MoveActionContext;
 import max.iv.labyrinth_game.service.game.actions.ShiftActionContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.socket.WebSocketSession;
 
 import java.util.EnumMap;
 import java.util.HashSet;
@@ -348,6 +349,24 @@ public class GameService {
         return room;
     }
 
+    public void removePlayerFromRoom(UUID playerId, String roomId) {
+        GameRoom room = roomService.getRoom(roomId);
+        if (room == null) {
+            log.warn("Attempted to remove player {} from a non-existent room {}", playerId, roomId);
+            return;
+        }
+
+        boolean removed = room.getPlayers().removeIf(player -> player.getId().equals(playerId));
+
+        if (removed) {
+            log.info("Player {} was successfully removed from the player list of room {}.", playerId, roomId);
+            //TODO Дополнительная логика, если уход игрока меняет состояние игры
+            // (например, если он был последним, комната может быть удалена, или если игра шла, а остался один - он победитель)
+
+        } else {
+            log.warn("Attempted to remove player {} from room {}, but a player with this ID was not found in the room.", playerId, roomId);
+        }
+    }
     private record Point(int x, int y) {
     }
 }

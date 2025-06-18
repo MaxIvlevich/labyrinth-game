@@ -15,5 +15,6 @@ public enum GameMessageType {
     GAME_OVER_MESSAGE,
 
     ROOM_LIST_UPDATE,
-    GET_ROOM_LIST_REQUEST
+    GET_ROOM_LIST_REQUEST,
+    LEAVE_ROOM
 }

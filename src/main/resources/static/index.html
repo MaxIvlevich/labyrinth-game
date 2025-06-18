@@ -16,14 +16,66 @@
 <div class="page-wrapper">
 
     <header class="main-header">
-        <!-- Сюда можно будет вставить анимированный логотип -->
         <img src="/images/logo.png" alt="Логотип Лабиринт" class="logo">
         <h1>Лабиринт Онлайн</h1>
     </header>
 
     <main class="content">
-        <!-- Здесь будет основное содержимое: лобби или игра -->
-        <!-- Пока оставим этот блок пустым -->
+        <!-- ОБЩИЙ КОНТЕЙНЕР ДЛЯ ЛОББИ -->
+        <div id="lobby-view" class="view-container">
+
+            <div class="lobby-header">
+                <h2>Лобби</h2>
+                <p>Создайте свою игру или присоединяйтесь к существующей</p>
+            </div>
+            <p id="lobby-status" class="status-text"></p>
+
+            <!-- КНОПКИ ДЕЙСТВИЙ -->
+            <div class="lobby-actions">
+                <button id="create-room-btn" class="btn btn-primary">
+                    <img src="/images/add-icon.svg" alt="" class="btn-icon"> Создать комнату
+                </button>
+                <button id="refresh-rooms-btn" class="btn">
+                    <img src="/images/refresh-icon.svg" alt="" class="btn-icon"> Обновить
+                </button>
+            </div>
+
+            <!-- СПИСОК КОМНАТ -->
+            <div class="room-list-container">
+                <h3>Доступные комнаты:</h3>
+                <div id="room-list" class="room-list">
+                    <!-- Сюда JS будет добавлять комнаты. Пока добавим "заглушки" для примера -->
+
+                    <!-- Пример карточки комнаты 1 -->
+                    <div class="room-card">
+                        <h4>Комната #a4f3b1</h4>
+                        <p class="room-players">Игроки: 1 / 4</p>
+                        <p class="room-status status-waiting">Ожидание игроков</p>
+                    </div>
+
+                    <!-- Пример карточки комнаты 2 -->
+                    <div class="room-card">
+                        <h4>Комната #c8e09f</h4>
+                        <p class="room-players">Игроки: 3 / 4</p>
+                        <p class="room-status status-waiting">Ожидание игроков</p>
+                    </div>
+
+                    <!-- Пример карточки комнаты 3 -->
+                    <div class="room-card">
+                        <h4>Комната #55d7a2</h4>
+                        <p class="room-players">Игроки: 4 / 4</p>
+                        <p class="room-status status-full">Заполнена</p>
+                    </div>
+
+                </div>
+            </div>
+        </div> <!-- Конец #lobby-view -->
+
+        <div id="game-view" class="hidden">
+            <h1>Вы в комнате!</h1>
+            <p>Здесь скоро будет игра.</p>
+            <button id="leave-room-btn">Выйти в лобби</button>
+        </div>
     </main>
 
     <footer class="main-footer">
@@ -33,6 +85,33 @@
 </div>
 
 <!-- Подключаем наш скрипт в самом конце, чтобы он не мешал загрузке страницы -->
+
+<div id="create-room-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <h3>Настройки новой комнаты</h3>
+
+        <form id="create-room-form">
+            <div class="form-group">
+                <label for="room-name-input">Название комнаты (необязательно)</label>
+                <input type="text" id="room-name-input" placeholder="Например, 'Игра для друзей'">
+            </div>
+
+            <div class="form-group">
+                <label for="max-players-select">Количество игроков</label>
+                <select id="max-players-select">
+                    <option value="2">2 игрока</option>
+                    <option value="3">3 игрока</option>
+                    <option value="4" selected>4 игрока</option> <!-- По умолчанию выбрано 4 -->
+                </select>
+            </div>
+
+            <div class="modal-actions">
+                <button type="submit" class="btn btn-primary">Создать</button>
+                <button type="button" id="cancel-create-room-btn" class="btn">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
 <script src="script.js"></script>
 </body>
 </html>

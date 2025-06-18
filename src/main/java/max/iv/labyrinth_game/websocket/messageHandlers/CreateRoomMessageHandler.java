@@ -73,7 +73,7 @@ public class CreateRoomMessageHandler implements WebSocketMessageHandler{
                 session.getId(), request.getMaxPlayers());
         try {
             // 1. Создаем комнату через RoomService
-            GameRoom createdRoom = roomService.createRoom(request.getMaxPlayers(),request.getRoomName());
+            GameRoom createdRoom = roomService.createRoom(request.getMaxPlayers(),request.getName());
             log.info("Room {} created by RoomService.", createdRoom.getRoomId());
             String roomId = createdRoom.getRoomId();
 

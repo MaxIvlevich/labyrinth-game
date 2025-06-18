@@ -240,4 +240,17 @@ public class SessionManager{
         return null;
     }
 
+    public void returnPlayerToLobby(String sessionId) {
+        WebSocketSession session = allActiveSessions.get(sessionId);
+        if (session != null && session.isOpen()) {
+            Object removedRoomId = session.getAttributes().remove(ROOM_ID_ATTRIBUTE_KEY);
+            if (removedRoomId != null) {
+                log.info("Session {} has been disassociated from room {} and returned to lobby state.", sessionId, removedRoomId);
+            } else {
+                log.debug("Session {} was already in lobby state, no room ID to remove.", sessionId);
+            }
+        } else {
+            log.warn("Attempted to return a non-active or null session {} to lobby.", sessionId);
+        }
+    }
 }

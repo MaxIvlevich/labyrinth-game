@@ -3,6 +3,7 @@ package max.iv.labyrinth_game.service.game;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.websocket.LobbyBroadcaster;
 import max.iv.labyrinth_game.websocket.events.lobby.PlayerNeedsRemovalFromLobbyEvent;
+import max.iv.labyrinth_game.websocket.events.lobby.PlayerReturnedToLobbyEvent;
 import max.iv.labyrinth_game.websocket.events.lobby.SessionNeedsRemovalFromLobbyEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
@@ -41,5 +42,10 @@ public class LobbyService {
     public void handlePlayerRemovalRequest(PlayerNeedsRemovalFromLobbyEvent event) {
         log.info("LobbyService handling PlayerNeedsRemovalFromLobbyEvent for player ID: {}", event.getPlayerId());
         broadcaster.removePlayerFromLobby(event.getPlayerId());
+    }
+    @EventListener
+    public void handlePlayerReturnedToLobby(PlayerReturnedToLobbyEvent event) {
+        log.info("LobbyService handling PlayerReturnedToLobbyEvent for player ID: {}", event.getPlayerId());
+        addSessionToLobby(event.getSession(), event.getPlayerId());
     }
 }
