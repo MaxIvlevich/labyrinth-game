@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация - Лабиринт Онлайн</title>
+    <!-- Подключаем те же стили, что и для логина -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="login-container">
+    <h2>Регистрация</h2>
+    <div id="errorMessage" class="error-message"></div>
+    <form id="signupForm">
+        <div>
+            <label for="username">Имя пользователя:</label>
+            <input type="text" id="username" name="username" required minlength="3">
+        </div>
+        <div>
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+        <div>
+            <label for="password">Пароль:</label>
+            <input type="password" id="password" name="password" required minlength="6">
+        </div>
+        <button type="submit">Зарегистрироваться</button>
+    </form>
+    <div class="register-link">
+        Уже есть аккаунт? <a href="/login.html">Войти</a>
+    </div>
+</div>
+
+<script>
+    const signupForm = document.getElementById('signupForm');
+    const errorMessageDiv = document.getElementById('errorMessage');
+
+    signupForm.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        errorMessageDiv.textContent = '';
+
+        const username = document.getElementById('username').value;
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+
+        // Простая валидация на фронте
+        if (!username || !email || !password) {
+            errorMessageDiv.textContent = 'Пожалуйста, заполните все поля.';
+            return;
+        }
+        if (password.length < 6) {
+            errorMessageDiv.textContent = 'Пароль должен быть не менее 6 символов.';
+            return;
+        }
+
+        const signupData = {
+            username: username,
+            email: email,
+            password: password
+        };
+
+        console.log("Attempting signup with payload:", signupData);
+
+        try {
+            const response = await fetch('/api/auth/signup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(signupData)
+            });
+
+            // Если ответ не JSON, он вызовет ошибку в .json(), которую мы поймаем в catch
+            const responseData = await response.json();
+
+            if (response.ok) { // Статус 200 или 201
+                console.log('Signup successful:', responseData);
+                alert('Регистрация прошла успешно! Теперь вы можете войти.');
+                // Перенаправляем на страницу входа
+                window.location.href = '/login.html';
+            } else {
+                // Сервер вернул ошибку (например, 400 Bad Request)
+                console.error('Signup failed:', responseData);
+                // Отображаем сообщение об ошибке от сервера
+                errorMessageDiv.textContent = responseData.message || `Ошибка: ${response.statusText}`;
+            }
+
+        } catch (error) {
+            console.error('Signup request error:', error);
+            errorMessageDiv.textContent = 'Произошла ошибка сети или ответа от сервера.';
+        }
+    });
+</script>
+</body>
+</html>

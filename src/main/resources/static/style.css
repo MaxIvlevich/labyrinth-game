@@ -293,3 +293,152 @@ h1 {
      padding: 5px 10px;
      border-radius: 20px;
  }
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.game-header h2 {
+    font-size: 1.8em;
+    color: #333;
+}
+
+.game-layout {
+    display: grid;
+    /* Две колонки: левая 280px, правая занимает остальное место */
+    grid-template-columns: 280px 1fr;
+    gap: 30px;
+}
+
+/* --- Левая панель с информацией --- */
+.game-info-panel {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.game-info-panel h3, .players-panel h4, .tile-panel h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.2em;
+}
+
+.info-block p {
+    margin-bottom: 8px;
+}
+
+.players-panel, .tile-panel {
+    border-top: 1px solid #ddd;
+    padding-top: 15px;
+}
+
+/* --- Правая панель с полем --- */
+.game-board-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 500px; /* Чтобы было видно надпись "Загрузка" */
+}
+.login-container {
+    width: 100%;
+    max-width: 400px;
+    padding: 30px 40px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    margin: 20px auto;
+}
+
+.login-container h2 {
+    text-align: center;
+    margin-bottom: 25px;
+    color: #333;
+    font-size: 1.8em;
+}
+
+/* Стилизуем DIV, который является прямым потомком формы */
+.login-container form > div {
+    margin-bottom: 20px;
+}
+
+.login-container label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #555;
+    font-size: 0.9em;
+}
+
+/* Применяем стили ко всем инпутам внутри контейнера */
+.login-container input {
+    width: 100%;
+    /* Убираем лишние отступы, чтобы width:100% работал как надо */
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 1em;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.login-container input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
+}
+
+.login-container button[type="submit"] {
+    width: 100%;
+    padding: 12px;
+    background-color: #28a745;
+    border: none;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1.1em;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+
+.login-container button[type="submit"]:hover {
+    background-color: #218838;
+}
+
+/* --- Сообщение об ошибке и ссылка --- */
+.error-message {
+    color: #dc3545;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 0.9em;
+    display: none;
+}
+.error-message:not(:empty) {
+    display: block;
+}
+
+.register-link {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.9em;
+    color: #6c757d;
+}
+.register-link a {
+    color: #007bff;
+    text-decoration: none;
+    font-weight: bold;
+}
+.register-link a:hover {
+    text-decoration: underline;
+}
