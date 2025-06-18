@@ -9,6 +9,7 @@ const domElements = {
     refreshRoomsBtn: document.getElementById('refresh-rooms-btn'),
     roomListContainer: document.getElementById('room-list'),
     lobbyStatus: document.getElementById('lobby-status'),
+    logoutBtn: document.getElementById('logout-btn'),
 
     // Элементы Модального окна
     createRoomModal: document.getElementById('create-room-modal'),
@@ -64,6 +65,7 @@ function showView(viewName) {
             leaveRoomBtn.onclick = () => { // Назначаем новый
                 logToPageAndConsole('Action: Leaving room, returning to lobby.');
                 sendWebSocketMessage({ type: 'LEAVE_ROOM' });
+                localStorage.removeItem('currentRoomId');
                 showView('lobby');
             };
         }
@@ -72,6 +74,12 @@ function showView(viewName) {
 
 // ================= ЛОГИКА ЛОББИ =================
 function renderRoomList(rooms) {
+    console.log("--- renderRoomList ---");
+    console.log("Received rooms data:", rooms);
+    if (rooms && rooms.length > 0) {
+        console.log("First room object:", rooms[0]);
+        console.log("Keys in first room object:", Object.keys(rooms[0]));
+    }
     if (!domElements.roomListContainer) return;
 
     domElements.roomListContainer.innerHTML = '';
@@ -88,10 +96,10 @@ function renderRoomList(rooms) {
         // 1. Используем room.roomName
         const roomName = room.roomName || `Комната #${room.roomId.substring(0, 6)}...`;
 
-        // 2. Используем room.currentPlayerCount
-        const playerCountText = `${room.currentPlayerCount} / ${room.maxPlayers}`;
+        // 2. Количество игроков
+        const playersInfo = `Игроки: ${room.currentPlayerCount} / ${room.maxPlayers}`;
 
-        // 3. Используем room.gamePhase и делаем текст понятным для пользователя
+        // 3. Статус игры
         let statusText = 'Ожидание игроков';
         let statusClass = 'status-waiting';
 
@@ -99,16 +107,15 @@ function renderRoomList(rooms) {
             statusText = 'В игре';
             statusClass = 'status-playing';
         }
-        // Проверяем, заполнена ли комната
         if (room.currentPlayerCount >= room.maxPlayers) {
             statusText = 'Заполнена';
             statusClass = 'status-full';
         }
 
         roomCard.innerHTML = `
-            <h4>${roomName}</h4>
-            <p class="room-players">Игроки: ${room.playerCount} / ${room.maxPlayers}</p>
-            <p class="room-status ${statusClass}">${room.status}</p>
+            <h4>${name}</h4>
+            <p class="room-players">${playersInfo}</p>
+            <p class="room-status ${statusClass}">${statusText}</p>
         `;
 
         roomCard.addEventListener('click', () => {
@@ -146,8 +153,11 @@ function handleServerMessage(message) {
             break;
 
         case 'GAME_STATE_UPDATE':
+            console.log('%c GAME_STATE_UPDATE received by this client!', 'color: lime; font-weight: bold; font-size: 16px;', parsedMessage);
             logToPageAndConsole('Received game state. Switching to game view...');
+            localStorage.setItem('currentRoomId', parsedMessage.roomId);
             showView('game'); // Просто переключаем экран
+
             break;
 
         case 'ERROR_MESSAGE':
@@ -186,14 +196,30 @@ document.addEventListener('DOMContentLoaded', () => {
     logToPageAndConsole('System: DOMContentLoaded for index.html.');
     localAccessToken = localStorage.getItem('accessToken');
     localUserId = localStorage.getItem('userId');
+    const localUsername = localStorage.getItem('username');
+    const savedRoomId = localStorage.getItem('currentRoomId');
+
+    const header = document.querySelector('.main-header');
+    if (header && localUsername) {
+        const userDisplay = document.createElement('p');
+        userDisplay.className = 'user-display';
+        userDisplay.textContent = `Вы вошли как: ${localUsername}`;
+        header.appendChild(userDisplay);
+    }
+
 
     if (!localAccessToken) {
         redirectToLogin('No access token found.');
         return;
     }
 
-    // Показываем лобби по умолчанию при загрузке
-    showView('lobby');
+    if (savedRoomId) {
+        logToPageAndConsole(`Found saved room ID: ${savedRoomId}. Attempting to restore game view.`);
+        showView('game');
+        // Мы покажем пустой игровой экран, но WebSocket после подключения
+    } else {
+        showView('lobby');
+    }
     initializeWebSocket(localAccessToken);
 
     // --- ОБРАБОТЧИКИ СОБЫТИЙ ДЛЯ ЭЛЕМЕНТОВ ---
@@ -231,6 +257,10 @@ document.addEventListener('DOMContentLoaded', () => {
         logToPageAndConsole('Action: "Refresh List" button clicked.');
         domElements.lobbyStatus.textContent = 'Обновление списка комнат...';
         sendWebSocketMessage({ type: 'GET_ROOM_LIST_REQUEST', pageNumber: 0, pageSize: 8 });
+    });
+    domElements.logoutBtn.addEventListener('click', () => {
+        logToPageAndConsole('Action: Full logout initiated.');
+        redirectToLogin('User clicked logout button.');
     });
 
 });

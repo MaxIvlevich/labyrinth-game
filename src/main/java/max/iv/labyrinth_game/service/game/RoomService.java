@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.model.game.GameRoom;
 import max.iv.labyrinth_game.model.game.enums.GamePhase;
 import max.iv.labyrinth_game.websocket.dto.RoomInfoDTO;
+import max.iv.labyrinth_game.websocket.events.lobby.LobbyRoomListNeedsUpdateEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
@@ -16,10 +18,13 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@AllArgsConstructor
 public class RoomService {
 
     private final Map<String, GameRoom> gameRooms = new ConcurrentHashMap<>();
+    private final ApplicationEventPublisher eventPublisher;
+    public RoomService(ApplicationEventPublisher eventPublisher) {
+        this.eventPublisher = eventPublisher;
+    }
     public GameRoom createRoom(int maxPlayers,String roomName) {
         validateMaxPlayers(maxPlayers);
         GameRoom room = new GameRoom(maxPlayers,roomName);
@@ -91,5 +96,12 @@ public class RoomService {
 
     public long getTotalRoomCount() {
         return gameRooms.size();
+    }
+    public void removeRoom(String roomId) {
+        GameRoom removedRoom = gameRooms.remove(roomId);
+        if (removedRoom != null) {
+            log.info("Room {} was empty and has been removed.", roomId);
+            eventPublisher.publishEvent(new LobbyRoomListNeedsUpdateEvent(this));
+        }
     }
 }

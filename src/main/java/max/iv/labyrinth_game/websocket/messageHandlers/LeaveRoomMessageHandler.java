@@ -39,28 +39,24 @@ public class LeaveRoomMessageHandler implements WebSocketMessageHandler {
         if (playerId == null || roomId == null) {
             log.warn("LEAVE_ROOM request from session {} which is not fully in a room (playerId: {}, roomId: {}). Ignoring.",
                     session.getId(), playerId, roomId);
-            // Можно отправить ошибку, но лучше тихо проигнорировать, т.к. цель уже достигнута.
             return;
         }
 
         log.info("Handling LEAVE_ROOM request from player {} in room {}", playerId, roomId);
 
         try {
-            // 2. Вызываем GameService для удаления игрока из комнаты
-            // 1. Вызываем сервис для удаления игрока из логики комнаты
-            gameService.removePlayerFromRoom(playerId, roomId);
+            boolean roomWasRemoved = gameService.removePlayerFromRoom(playerId, roomId);
 
-            // 2. Отвязываем сессию от комнаты
             sessionManager.returnPlayerToLobby(session.getId());
-
-            // 3. Публикуем событие, что игрок вернулся в лобби
-            // LobbyService подхватит его и добавит сессию в свой трекинг
             eventPublisher.publishEvent(new PlayerReturnedToLobbyEvent(this, session, playerId));
 
-            // 4. Публикуем событие для обновления состояния комнаты для оставшихся игроков
-            eventPublisher.publishEvent(new RoomStateNeedsBroadcastEvent(this, roomId));
+            // и нужно обновить их состояние.
+            if (!roomWasRemoved) {
+                eventPublisher.publishEvent(new RoomStateNeedsBroadcastEvent(this, roomId));
+            }
 
-            // 5. Публикуем событие для обновления списка комнат для всех в лобби
+            // В любом случае (была комната удалена или просто изменилось кол-во игроков),
+            // лобби нужно обновить.
             eventPublisher.publishEvent(new LobbyRoomListNeedsUpdateEvent(this));
 
         } catch (Exception e) {

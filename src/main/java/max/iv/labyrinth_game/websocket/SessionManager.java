@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.websocket.dto.ErrorMessageResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -252,5 +253,32 @@ public class SessionManager{
         } else {
             log.warn("Attempted to return a non-active or null session {} to lobby.", sessionId);
         }
+    }
+    public void closeExistingSessionForPlayer(UUID newPlayerId, String newSessionId) {
+        if (newPlayerId == null) return;
+
+        // Находим ID старой сессии по ID игрока
+        String oldSessionId = playerIdToSessionId.get(newPlayerId);
+
+        if (oldSessionId != null && !oldSessionId.equals(newSessionId)) {
+            log.warn("Player {} has an existing session {}. New session is {}. Terminating the old one.",
+                    newPlayerId, oldSessionId, newSessionId);
+
+            WebSocketSession oldSession = allActiveSessions.get(oldSessionId);
+            if (oldSession != null && oldSession.isOpen()) {
+                try {
+                    sendErrorMessageToSession(oldSession, "Your session was terminated because you logged in from another device.");
+                    oldSession.close(CloseStatus.POLICY_VIOLATION.withReason("New session initiated"));
+                } catch (Exception e) {
+                    log.error("Error closing old session {}: {}", oldSessionId, e.getMessage());
+                }
+            }
+        }
+    }
+
+    public void mapPlayerToSession(UUID playerId, String sessionId ) {
+        if (playerId == null || sessionId == null) return;
+        playerIdToSessionId.put(playerId, sessionId);
+        log.info("Mapped player {} to new session {}", playerId, sessionId);
     }
 }

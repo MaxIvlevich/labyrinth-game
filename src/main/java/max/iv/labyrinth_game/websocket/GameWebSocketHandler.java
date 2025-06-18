@@ -44,18 +44,19 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         sessionManager.registerSession(session);
         log.info("CONNECTION ESTABLISHED: Session ID = {}, Remote Address = {}", session.getId(), session.getRemoteAddress());
         try {
+            UUID userId = (UUID) session.getAttributes().get(SessionManager.USER_ID_ATTRIBUTE_KEY);
+
+            if (userId != null) {
+                sessionManager.closeExistingSessionForPlayer(userId, session.getId());
+                sessionManager.mapPlayerToSession(userId, session.getId());
+                lobbyService.addSessionToLobby(session, userId);
+            }else {
+                log.warn("Session {} connected, but user details not found...", session.getId());
+            }
             JSONMessageToFront welcomeMsg = new JSONMessageToFront(
                     "Welcome to Labyrinth Game! Please create or join a room.");
             sessionManager.sendMessageToSession(session, welcomeMsg, objectMapper);
 
-            UUID userId = (UUID) session.getAttributes().get(SessionManager.USER_ID_ATTRIBUTE_KEY);
-            String userName = (String) session.getAttributes().get(SessionManager.USER_NAME_ATTRIBUTE_KEY);
-
-            if (userId != null && userName != null) {
-                lobbyService.addSessionToLobby(session, userId);
-            } else {
-                log.warn("Session {} connected, but user details not found in session attributes. Not adding to lobby yet.", session.getId());
-            }
         } catch (Exception e) {
             log.error("Error sending welcome message to session {}: {}", session.getId(), e.getMessage(), e);
         }

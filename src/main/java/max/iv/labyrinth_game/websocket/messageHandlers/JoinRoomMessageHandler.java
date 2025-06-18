@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.model.game.Base;
+import max.iv.labyrinth_game.model.game.GameRoom;
 import max.iv.labyrinth_game.model.game.Player;
 import max.iv.labyrinth_game.service.game.GameService;
 import max.iv.labyrinth_game.websocket.GameStateBroadcaster;
@@ -13,6 +14,7 @@ import max.iv.labyrinth_game.websocket.dto.GameMessageType;
 import max.iv.labyrinth_game.websocket.dto.JoinRoomRequest;
 import max.iv.labyrinth_game.websocket.events.lobby.LobbyRoomListNeedsUpdateEvent;
 import max.iv.labyrinth_game.websocket.events.lobby.PlayerNeedsRemovalFromLobbyEvent;
+import max.iv.labyrinth_game.websocket.events.lobby.RoomStateNeedsBroadcastEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
@@ -57,60 +59,50 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler {
 
     @Override
     public void handle(WebSocketSession session, BaseMessage message) throws Exception {
-        if (!(message instanceof JoinRoomRequest request)) {
-            log.error("Internal error: JoinRoomMessageHandler received non-JoinRoomRequest message type: {}", message.getClass().getSimpleName());
-            sessionManager.sendErrorMessageToSession(session, "Internal server error: Invalid message type for JOIN_ROOM handler.", objectMapper);
-            return;
-        }
+        JoinRoomRequest request = (JoinRoomRequest) message;
         if (sessionManager.validateRequestAndSendError(session, request, validator, "JOIN_ROOM")) {
             return;
         }
-        String roomId = request.getRoomId();
-        log.info("Handling JOIN_ROOM request from session {} for room {}", session.getId(), roomId);
-        try {
             // 1. Извлекаем ID и имя пользователя из атрибутов сессии
             UUID userId = (UUID) session.getAttributes().get(USER_ID_ATTRIBUTE_KEY);
             String userName = (String) session.getAttributes().get(USER_NAME_ATTRIBUTE_KEY);
 
-            if (userId == null || userName == null || userName.isBlank()) {
-                log.warn("User ID or Name not found in session attributes for session {}. User must be authenticated.", session.getId());
-                sessionManager.sendErrorMessageToSession(session, "User authentication/identification required to join a room.", objectMapper);
+            if (userId == null || userName == null) {
+                sessionManager.sendErrorMessageToSession(session, "Authentication error. Cannot join room.");
                 return;
             }
-            // 2. Проверяем, не пытается ли игрок присоединиться к комнате, в которой он уже есть (по ID игрока)
-            String currentRoomIdForSession = sessionManager.getRoomIdBySession(session);
-            if (currentRoomIdForSession != null) {
-                String existingRoomId = (String) session.getAttributes().get(SessionManager.ROOM_ID_ATTRIBUTE_KEY);
-                log.warn("Player {} (session {}) attempted to join room {} but is already associated with room {}.",
-                        userId, session.getId(), roomId, existingRoomId);
-                sessionManager.sendErrorMessageToSession(session, "You are already in a room. Please leave it first to join another."
-                        , objectMapper);
-                return;
-            }
-            // 3. Создаем объект Player (без аватара, его назначит GameService)
-            Player newPlayer = new Player(userId, userName, new Base(0, 0, Set.of()));
-            // 4. Добавляем игрока в комнату через GameService.
-            gameService.addPlayerToRoom(roomId, newPlayer);
-            // 5. Ассоциируем WebSocket сессию с ID игрока и ID комнаты
-            sessionManager.associatePlayerWithSession(session, userId, roomId);
-            log.debug("Publishing PlayerNeedsRemovalFromLobbyEvent for player {} who joined room {}", userId, roomId);
-            eventPublisher.publishEvent(new PlayerNeedsRemovalFromLobbyEvent(this, userId));
-            // 6. Отправляем подтверждение присоединения этому клиенту
-            sessionManager.sendMessageToSession(session, new BaseMessage(GameMessageType.JOIN_SUCCESS), objectMapper);
-            log.info("Player {} (ID: {}, Avatar: {}) joined room {}. Session {} associated.",
-                    userName, userId, newPlayer.getAvatar(), roomId, session.getId());
-            // 7. Отправляем обновленное состояние игры всем в комнате
-            gameStateBroadcaster.broadcastGameStateToRoom(roomId);
-            // 8. Публикуем событие для обновления списка комнат в лобби
-            log.debug("Publishing LobbyRoomListNeedsUpdateEvent after player {} joined room {}", userId, roomId);
-            eventPublisher.publishEvent(new LobbyRoomListNeedsUpdateEvent(this));
 
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            log.warn("Failed to process JOIN_ROOM request for session {} to room {}: {}", session.getId(), roomId, e.getMessage());
-            sessionManager.sendErrorMessageToSession(session, e.getMessage(), objectMapper);
-        } catch (Exception e) {
-            log.error("Unexpected error during JOIN_ROOM handling for session {} to room {}: {}", session.getId(), roomId, e.getMessage(), e);
-            sessionManager.sendErrorMessageToSession(session, "An error occurred while joining the room.", objectMapper);
-        }
+            // Проверяем, не сидит ли эта СЕССИЯ уже в какой-то комнате
+            if (sessionManager.getRoomIdBySession(session) != null) {
+                sessionManager.sendErrorMessageToSession(session, "Your current session is already in a room. Leave it first.");
+                return;
+            }
+
+            String roomIdToJoin = request.getRoomId();
+            log.info("Handling JOIN_ROOM request from player {} ({}) for room {}", userName, userId, roomIdToJoin);
+
+            try {
+                // 1. Создаем объект игрока
+                Player newPlayer = new Player(userId, userName, new Base(0, 0, Set.of()));
+
+                // 2. Вся логика присоединения и проверок теперь внутри GameService
+                gameService.addPlayerToRoom(roomIdToJoin, newPlayer);
+
+                // 3. Если не было исключений, значит все прошло успешно. Ассоциируем сессию.
+                sessionManager.associatePlayerWithSession(session, userId, roomIdToJoin);
+
+                // 4. Публикуем события для обновления UI у всех клиентов
+                eventPublisher.publishEvent(new PlayerNeedsRemovalFromLobbyEvent(this, userId));
+                eventPublisher.publishEvent(new RoomStateNeedsBroadcastEvent(this, roomIdToJoin));
+                eventPublisher.publishEvent(new LobbyRoomListNeedsUpdateEvent(this));
+
+                log.info("Player {} successfully processed to join room {}", userName, roomIdToJoin);
+
+            } catch (Exception e) {
+                // GameService выбросит исключение, если что-то пошло не так (комната не найдена, полная и т.д.)
+                log.warn("Failed to process JOIN_ROOM for player {} into room {}: {}", userId, roomIdToJoin, e.getMessage());
+                // Отправляем понятное сообщение об ошибке на фронт
+                sessionManager.sendErrorMessageToSession(session, e.getMessage());
+            }
     }
 }

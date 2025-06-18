@@ -12,11 +12,12 @@ import max.iv.labyrinth_game.model.game.enums.GamePhase;
 import max.iv.labyrinth_game.model.game.enums.PlayerAvatar;
 import max.iv.labyrinth_game.service.game.actions.MoveActionContext;
 import max.iv.labyrinth_game.service.game.actions.ShiftActionContext;
+import max.iv.labyrinth_game.websocket.events.lobby.LobbyRoomListNeedsUpdateEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.web.socket.WebSocketSession;
 
 import java.util.EnumMap;
+import java.util.EventListener;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -35,6 +36,8 @@ public class GameService {
     private final BoardSetupService boardSetupService;
     private final GameValidator gameValidator;
     private final BoardShiftService boardShiftService;
+
+
     private final Random random = new Random();
     // Карта для обработки действий сдвига в зависимости от фазы
     private EnumMap<GamePhase, BiConsumer<ShiftActionContext, GameService>> shiftActionHandlers;
@@ -43,11 +46,13 @@ public class GameService {
     private final List<PlayerAvatar> avatars = PlayerAvatar.getAllAvatars();
 
     @Autowired
-    public GameService(RoomService roomService, BoardSetupService boardSetupService, GameValidator gameValidator, BoardShiftService boardShiftService) {
+    public GameService(RoomService roomService, BoardSetupService boardSetupService, GameValidator gameValidator,
+                       BoardShiftService boardShiftService) {
         this.roomService = roomService;
         this.boardSetupService = boardSetupService;
         this.gameValidator = gameValidator;
         this.boardShiftService = boardShiftService;
+
     }
 
     @PostConstruct
@@ -247,16 +252,28 @@ public class GameService {
 
     public  GameRoom addPlayerToRoom(String roomId, Player newPlayer) {
         GameRoom room = roomService.getRoom(roomId);
-
-        if (room == null) {
-            throw new IllegalArgumentException("Room not found: " + roomId);
-        }
         roomService.validateRoomForJoin(room);
-        int count = room.getPlayers().size();
-        newPlayer.setAvatar(avatars.get(count));
+        UUID newPlayerId = newPlayer.getId();
+        boolean alreadyInRoom = room.getPlayers().stream()
+                .anyMatch(p -> p.getId().equals(newPlayerId));
+
+        if (alreadyInRoom) {
+            log.warn("Player {} is already in room {}. Join request denied.", newPlayerId, roomId);
+            throw new IllegalStateException("You are already in this room.");
+        }
+        int playerCount = room.getPlayers().size();
+        if (playerCount < avatars.size()) {
+            newPlayer.setAvatar(avatars.get(playerCount));
+        } else {
+            log.warn("Not enough unique avatars for player count {}. Using default.", playerCount);
+            // Можно предусмотреть дефолтный аватар
+        }
 
         room.addPlayer(newPlayer);
-        log.info("Player {} (ID: {}) added to room {} by GameService", newPlayer.getName(), newPlayer.getId(), roomId);
+        log.info("Player {} (ID: {}) added to room {} by GameService. Players in room: {}",
+                newPlayer.getName(), newPlayer.getId(), roomId, room.getPlayers().size());
+
+        // 5. Если комната заполнилась, начинаем игру
         if (room.isFull() && room.getGamePhase() == GamePhase.WAITING_FOR_PLAYERS) {
             log.info("Room {} is now full with {} players. Starting game...", roomId, room.getPlayers().size());
             this.startGame(roomId);
@@ -349,23 +366,24 @@ public class GameService {
         return room;
     }
 
-    public void removePlayerFromRoom(UUID playerId, String roomId) {
+    public boolean  removePlayerFromRoom(UUID playerId, String roomId) {
         GameRoom room = roomService.getRoom(roomId);
-        if (room == null) {
-            log.warn("Attempted to remove player {} from a non-existent room {}", playerId, roomId);
-            return;
-        }
+        if (room == null) return false;
 
-        boolean removed = room.getPlayers().removeIf(player -> player.getId().equals(playerId));
+        boolean playerRemoved = room.getPlayers().removeIf(player -> player.getId().equals(playerId));
 
-        if (removed) {
+        if (playerRemoved) {
             log.info("Player {} was successfully removed from the player list of room {}.", playerId, roomId);
-            //TODO Дополнительная логика, если уход игрока меняет состояние игры
-            // (например, если он был последним, комната может быть удалена, или если игра шла, а остался один - он победитель)
 
+            // Проверяем, не стала ли комната пустой
+            if (room.getPlayers().isEmpty()) {
+                roomService.removeRoom(roomId); // RoomService сам себя чистит
+                return true; // Сообщаем, что комната была удалена
+            }
         } else {
-            log.warn("Attempted to remove player {} from room {}, but a player with this ID was not found in the room.", playerId, roomId);
+            log.warn("Attempted to remove player {} from room {}, but player was not found.", playerId, roomId);
         }
+        return false;
     }
     private record Point(int x, int y) {
     }
