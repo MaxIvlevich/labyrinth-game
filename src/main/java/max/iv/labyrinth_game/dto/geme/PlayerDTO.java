@@ -1,5 +1,7 @@
 package max.iv.labyrinth_game.dto.geme;
 
+import max.iv.labyrinth_game.model.game.enums.PlayerStatus;
+
 import java.util.Set;
 import java.util.UUID;
 
@@ -15,6 +17,7 @@ public record PlayerDTO(
         int baseX,
         int baseY,
         Set<Integer> collectedMarkerIds,
-        Set<Integer> targetMarkerIds
+        Set<Integer> targetMarkerIds,
+        PlayerStatus status
 ) {
 }

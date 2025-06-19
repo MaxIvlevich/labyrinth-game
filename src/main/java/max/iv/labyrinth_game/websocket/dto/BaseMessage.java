@@ -2,7 +2,6 @@ package max.iv.labyrinth_game.websocket.dto;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -26,6 +25,7 @@ import lombok.Setter;
         @JsonSubTypes.Type(value = GetRoomListRequest.class, name = "GET_ROOM_LIST_REQUEST"),
         @JsonSubTypes.Type(value = RoomListUpdateResponse.class, name = "ROOM_LIST_UPDATE"),
         @JsonSubTypes.Type(value = LeaveRoomRequest.class, name = "LEAVE_ROOM"),
+        @JsonSubTypes.Type(value = ReconnectToRoomRequest.class, name = "RECONNECT_TO_ROOM")
 
 })
 public class BaseMessage {

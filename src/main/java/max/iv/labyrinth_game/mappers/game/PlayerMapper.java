@@ -3,6 +3,7 @@ package max.iv.labyrinth_game.mappers.game;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.dto.geme.PlayerDTO;
 import max.iv.labyrinth_game.model.game.Player;
+import max.iv.labyrinth_game.model.game.enums.PlayerStatus;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -39,6 +40,7 @@ public class PlayerMapper {
             avatarTypeName = player.getAvatar().name();
         }
 
+        PlayerStatus status = player.getStatus();
         return new PlayerDTO(
                 player.getId(),
                 player.getName(),
@@ -48,7 +50,8 @@ public class PlayerMapper {
                 baseX,
                 baseY,
                 collectedMarkers,
-                targetMarkers
+                targetMarkers,
+                status
         );
     }
 }

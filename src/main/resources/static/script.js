@@ -237,9 +237,10 @@ function initializeWebSocket(token) {
         console.log('WebSocket connection opened successfully.');
         const savedRoomId = localStorage.getItem('currentRoomId');
         if (savedRoomId) {
-            sendWebSocketMessage({ type: 'GET_GAME_STATE', roomId: savedRoomId });
+            sendWebSocketMessage({ type: 'RECONNECT_TO_ROOM', roomId: savedRoomId });
         } else {
-            globalState.isLoading = false;
+            globalState.view = 'lobby';
+            render();
             sendWebSocketMessage({ type: 'GET_ROOM_LIST_REQUEST' });
         }
     };

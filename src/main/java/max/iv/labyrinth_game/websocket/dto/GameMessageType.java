@@ -16,5 +16,6 @@ public enum GameMessageType {
 
     ROOM_LIST_UPDATE,
     GET_ROOM_LIST_REQUEST,
-    LEAVE_ROOM
+    LEAVE_ROOM,
+    RECONNECT_TO_ROOM
 }

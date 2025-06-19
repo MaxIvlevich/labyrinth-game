@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import max.iv.labyrinth_game.model.game.enums.PlayerAvatar;
+import max.iv.labyrinth_game.model.game.enums.PlayerStatus;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -23,6 +24,7 @@ public class Player {
 
     // Базовые координаты (где игрок начинает)
     private  Base base;
+    private PlayerStatus status = PlayerStatus.CONNECTED;
 
 
     public Player(UUID id, String name, PlayerAvatar avatar, Base base) {
