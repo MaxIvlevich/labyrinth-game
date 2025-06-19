@@ -268,6 +268,10 @@ h1 {
     display: none;
 }
 .main-header {
+    text-align: center;
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #ddd;
     position: relative; /* Нужно для позиционирования кнопки */
 }
 
@@ -441,4 +445,14 @@ h1 {
 }
 .register-link a:hover {
     text-decoration: underline;
+}
+.user-info-header {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }

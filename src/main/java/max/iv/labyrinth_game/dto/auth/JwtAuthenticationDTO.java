@@ -14,6 +14,4 @@ public class JwtAuthenticationDTO {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
     }
-
-
 }

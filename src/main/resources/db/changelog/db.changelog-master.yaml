@@ -6,4 +6,11 @@ databaseChangeLog:
         - sqlFile:
             path: changes/V001_labirint_game_users.sql
             relativeToChangelogFile: true
+  - changeSet:
+       id: 2
+       author: mivlev
+       changes:
+         - sqlFile:
+             path: changes/V002_refresh_tokens.sql
+             relativeToChangelogFile: true
 

@@ -1,11 +1,12 @@
 package max.iv.labyrinth_game.service.auth;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import max.iv.labyrinth_game.dto.auth.JwtAuthenticationDTO;
 import max.iv.labyrinth_game.dto.auth.JwtResponse;
 import max.iv.labyrinth_game.dto.auth.LoginRequest;
 import max.iv.labyrinth_game.dto.auth.SignupRequest;
+import max.iv.labyrinth_game.dto.auth.TokenRefreshRequest;
+import max.iv.labyrinth_game.exceptions.auth.TokenRefreshException;
+import max.iv.labyrinth_game.model.user.RefreshToken;
 import max.iv.labyrinth_game.model.user.User;
 import max.iv.labyrinth_game.repository.user.UserRepository;
 import max.iv.labyrinth_game.security.jwt.JwtUtils;
@@ -23,13 +24,21 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AuthService {
 
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenService refreshTokenService;
+
+    public AuthService(AuthenticationManager authenticationManager, JwtUtils jwtUtils, UserRepository userRepository, PasswordEncoder passwordEncoder, RefreshTokenService refreshTokenService) {
+        this.authenticationManager = authenticationManager;
+        this.jwtUtils = jwtUtils;
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.refreshTokenService = refreshTokenService;
+    }
 
     public JwtResponse loginUser(LoginRequest loginRequest) {
         log.info("AuthService: Attempting to authenticate user: {}", loginRequest.usernameOrEmail());
@@ -42,14 +51,15 @@ public class AuthService {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         User userPrincipal = (User) authentication.getPrincipal();
-        String emailForToken = userPrincipal.getEmail();
-        JwtAuthenticationDTO jwtAuthDto = jwtUtils.generateAuthToken(emailForToken);
+        String accessToken = jwtUtils.generateJwtToken(userPrincipal.getEmail());
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(userPrincipal.getId());
 
         List<String> roles = userPrincipal.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toList());
         return new JwtResponse(
-                jwtAuthDto,
+                accessToken,
+                refreshToken.getToken(),
                 userPrincipal.getId(),
                 userPrincipal.getUsername(),
                 roles
@@ -72,5 +82,23 @@ public class AuthService {
                 signupRequest.email()
         );
        userRepository.save(user);
+    }
+    public JwtResponse refreshToken(TokenRefreshRequest request) {
+        // 1. Находим токен в БД и проверяем его валидность (срок годности)
+        String requestRefreshToken = request.refreshToken();
+
+        return refreshTokenService.findByToken(requestRefreshToken)
+                .map(refreshTokenService::verifyExpiration)
+                .map(RefreshToken::getUser)
+                .map(user -> {
+                    String token = jwtUtils.generateJwtToken(user.getEmail());
+                    return new JwtResponse(token, requestRefreshToken, user.getId(), user.getUsername(), user.getRoles().stream().toList());
+                })
+                .orElseThrow(() -> new TokenRefreshException(requestRefreshToken, "Refresh token is not in database!"));
+    }
+
+    public void logoutUser(TokenRefreshRequest request) {
+        // Просто делегируем вызов сервису рефреш-токенов
+        refreshTokenService.deleteByToken(request.refreshToken());
     }
 }

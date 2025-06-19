@@ -12,51 +12,57 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<!-- Главная обертка для всей страницы -->
 <div class="page-wrapper">
     <header class="main-header">
-        <img src="/images/logo.png" alt="Логотип Лабиринт" class="logo">
-        <h1>Лабиринт Онлайн</h1>
-        <!-- Контейнер для информации о пользователе -->
+        <!-- Левая часть шапки: лого и название -->
+        <div class="header-title">
+            <img src="/images/logo.png" alt="Логотип Лабиринт" class="logo">
+            <h1>Лабиринт Онлайн</h1>
+        </div>
+
+        <!-- Правая часть шапки: информация о пользователе и выход -->
         <div class="user-info-header">
             <span id="username-display"></span>
             <button id="logout-btn" class="btn btn-logout">Выйти</button>
         </div>
     </header>
 
-    <!-- ОДИН-ЕДИНСТВЕННЫЙ КОНТЕЙНЕР ДЛЯ ВСЕГО ПРИЛОЖЕНИЯ -->
+    <!-- Основной контейнер, куда JavaScript будет "рисовать" лобби или игру -->
     <main id="app" class="content"></main>
 
     <footer class="main-footer">
         <p>© 2025 Лабиринт</p>
     </footer>
 </div>
-<script src="script.js"></script>
+
+<!-- Модальное окно для создания комнаты (по умолчанию скрыто) -->
+<!-- Оно лежит вне #app, так как управляется отдельно -->
 <div id="create-room-modal" class="modal-overlay hidden">
     <div class="modal-content">
         <h3>Настройки новой комнаты</h3>
-
         <form id="create-room-form">
             <div class="form-group">
-                <label for="room-name-input">Название комнаты </label>
-                <input type="text" id="room-name-input" placeholder="Например, 'Моя игра'">
+                <label for="room-name-input">Название комнаты</label>
+                <input type="text" id="room-name-input" placeholder="Например, 'Игра для друзей'">
             </div>
-
             <div class="form-group">
                 <label for="max-players-select">Количество игроков</label>
                 <select id="max-players-select">
-                    <option value="2">2 игрока</option>
-                    <option value="3">3 игрока</option>
-                    <option value="4" selected>4 игрока</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4" selected>4</option>
                 </select>
             </div>
-
             <div class="modal-actions">
                 <button type="submit" class="btn btn-primary">Создать</button>
                 <button type="button" id="cancel-create-room-btn" class="btn">Отмена</button>
             </div>
         </form>
-
     </div>
 </div>
+
+<!-- Подключаем наш главный скрипт в самом конце -->
+<script src="script.js"></script>
 </body>
 </html>

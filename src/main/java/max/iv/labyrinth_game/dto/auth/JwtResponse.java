@@ -11,10 +11,10 @@ public record JwtResponse(
         String username,
         List<String> roles
 ) {
-    public JwtResponse(JwtAuthenticationDTO jwtAuthDto, UUID userId, String username, List<String> roles) {
+    public JwtResponse(String accessToken,String refreshToken, UUID userId, String username, List<String> roles) {
         this(
-                jwtAuthDto.getAccessToken(),
-                jwtAuthDto.getRefreshToken(),
+                accessToken,
+                refreshToken,
                 "Bearer",
                 userId,
                 username,
