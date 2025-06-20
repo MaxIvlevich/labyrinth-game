@@ -1,9 +1,7 @@
 package max.iv.labyrinth_game.service.game;
 
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.model.game.GameRoom;
-import max.iv.labyrinth_game.model.game.enums.GamePhase;
 import max.iv.labyrinth_game.websocket.dto.RoomInfoDTO;
 import max.iv.labyrinth_game.websocket.events.lobby.LobbyRoomListNeedsUpdateEvent;
 import org.springframework.context.ApplicationEventPublisher;
@@ -22,8 +20,10 @@ public class RoomService {
 
     private final Map<String, GameRoom> gameRooms = new ConcurrentHashMap<>();
     private final ApplicationEventPublisher eventPublisher;
-    public RoomService(ApplicationEventPublisher eventPublisher) {
+    private final GameValidator gameValidator;
+    public RoomService(ApplicationEventPublisher eventPublisher, GameValidator gameValidator) {
         this.eventPublisher = eventPublisher;
+        this.gameValidator = gameValidator;
     }
     public GameRoom createRoom(int maxPlayers,String roomName) {
         validateMaxPlayers(maxPlayers);
@@ -35,7 +35,7 @@ public class RoomService {
 
     public GameRoom joinRoom(String roomId, String playerName) {
         GameRoom room = getExistingRoom(roomId);
-        validateRoomForJoin(room);
+        gameValidator.validateRoomForJoin(room);
         return room;
     }
 
@@ -49,14 +49,7 @@ public class RoomService {
         }
     }
 
-    public void validateRoomForJoin(GameRoom room) {
-        if (room.isFull()) {
-            throw new IllegalStateException("Room is full: " + room.getRoomId());
-        }
-        if (room.getGamePhase() != GamePhase.WAITING_FOR_PLAYERS) {
-            throw new IllegalStateException("Game already started or finished in room: " + room.getRoomId());
-        }
-    }
+
 
     private GameRoom getExistingRoom(String roomId) {
         GameRoom room = gameRooms.get(roomId);

@@ -293,9 +293,8 @@ function handleServerMessage(message) {
 
                 // Здесь можно будет добавить обработку других кодов ошибок
                 case 'NOT_YOUR_TURN':
-                    // Например, подсветить, чей сейчас ход
+                    //  подсветить, чей сейчас ход
                     console.warn(msg.message);
-                    // Можно показать короткое всплывающее уведомление вместо alert
                     showToast(msg.message);
                     break;
 

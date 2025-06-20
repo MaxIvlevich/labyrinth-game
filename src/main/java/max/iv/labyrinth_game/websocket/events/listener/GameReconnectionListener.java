@@ -1,13 +1,12 @@
 package max.iv.labyrinth_game.websocket.events.listener;
 
 import lombok.extern.slf4j.Slf4j;
-import max.iv.labyrinth_game.exceptions.auth.ErrorType;
+import max.iv.labyrinth_game.exceptions.ErrorType;
 import max.iv.labyrinth_game.model.game.GameRoom;
 import max.iv.labyrinth_game.model.game.Player;
 import max.iv.labyrinth_game.model.game.enums.PlayerStatus;
 import max.iv.labyrinth_game.service.game.RoomService;
 import max.iv.labyrinth_game.websocket.SessionManager;
-import max.iv.labyrinth_game.websocket.dto.ErrorMessageResponse;
 import max.iv.labyrinth_game.websocket.events.lobby.PlayerReturnedToLobbyEvent;
 import max.iv.labyrinth_game.websocket.events.lobby.RoomStateNeedsBroadcastEvent;
 import max.iv.labyrinth_game.websocket.events.room.PlayerReconnectedToRoomEvent;

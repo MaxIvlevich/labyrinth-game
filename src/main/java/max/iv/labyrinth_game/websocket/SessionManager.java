@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
-import max.iv.labyrinth_game.exceptions.auth.ErrorType;
+import max.iv.labyrinth_game.exceptions.ErrorType;
 import max.iv.labyrinth_game.websocket.dto.ErrorMessageResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;

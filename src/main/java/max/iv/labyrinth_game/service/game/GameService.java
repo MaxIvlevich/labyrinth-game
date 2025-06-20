@@ -2,6 +2,8 @@ package max.iv.labyrinth_game.service.game;
 
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import max.iv.labyrinth_game.exceptions.ErrorType;
+import max.iv.labyrinth_game.exceptions.game.GameLogicException;
 import max.iv.labyrinth_game.model.game.Board;
 import max.iv.labyrinth_game.model.game.Cell;
 import max.iv.labyrinth_game.model.game.GameRoom;
@@ -41,10 +43,7 @@ public class GameService {
     
     
     private final Random random = new Random();
-    // Карта для обработки действий сдвига в зависимости от фазы
-    private EnumMap<GamePhase, BiConsumer<ShiftActionContext, GameService>> shiftActionHandlers;
-    // Карта для обработки действий перемещения в зависимости от фазы
-    private EnumMap<GamePhase, BiConsumer<MoveActionContext, GameService>> moveActionHandlers;
+
     private final List<PlayerAvatar> avatars = PlayerAvatar.getAllAvatars();
 
     @Autowired
@@ -57,17 +56,17 @@ public class GameService {
 
     }
 
-    @PostConstruct
-    private void initializeActionHandlers() {
-        shiftActionHandlers = new EnumMap<>(GamePhase.class);
-        shiftActionHandlers.put(GamePhase.PLAYER_SHIFT, GameService::handleShiftInShiftPhaseLogic);
-        shiftActionHandlers.put(GamePhase.PLAYER_MOVE, (ctx, service) -> {
-            log.warn("Attempted SHIFT action in {} phase for room {}", ctx.getRoom().getGamePhase(), ctx.getRoom().getRoomId());
-            throw new IllegalStateException("Cannot perform shift action in phase: " + ctx.getRoom().getGamePhase());
-        });
-        moveActionHandlers = new EnumMap<>(GamePhase.class);
-        moveActionHandlers.put(GamePhase.PLAYER_MOVE, GameService::handleMoveInMovePhaseLogic);
-    }
+    // @PostConstruct
+            // private void initializeActionHandlers() {
+        //     shiftActionHandlers = new EnumMap<>(GamePhase.class);
+        //     shiftActionHandlers.put(GamePhase.PLAYER_SHIFT, GameService::handleShiftInShiftPhaseLogic);
+        //     shiftActionHandlers.put(GamePhase.PLAYER_MOVE, (ctx, service) -> {
+            //         log.warn("Attempted SHIFT action in {} phase for room {}", ctx.getRoom().getGamePhase(), ctx.getRoom().getRoomId());
+            //         throw new IllegalStateException("Cannot perform shift action in phase: " + ctx.getRoom().getGamePhase());
+            //     });
+        //     moveActionHandlers = new EnumMap<>(GamePhase.class);
+        //     moveActionHandlers.put(GamePhase.PLAYER_MOVE, GameService::handleMoveInMovePhaseLogic);
+        // }
 
     public GameRoom startGame(String roomId) {
         GameRoom room = roomService.getRoom(roomId);
@@ -82,92 +81,73 @@ public class GameService {
         return room;
     }
 
-    public GameRoom performShiftAction(String roomId, UUID playerId, int shiftIndex, Direction shiftDirection) {
-        GameRoom room = roomService.getRoom(roomId);
-        gameValidator.validatePlayerTurn(room, playerId);
-        ShiftActionContext context = new ShiftActionContext(room, playerId, shiftIndex, shiftDirection);
-        BiConsumer<ShiftActionContext, GameService> handler = shiftActionHandlers.get(room.getGamePhase());
-
-        if (handler != null) {
-            handler.accept(context, this); // Выполняем действие через найденный обработчик
-        } else {
-            log.warn("No SHIFT handler defined for game phase: {} in room {}", room.getGamePhase(), roomId);
-            throw new IllegalStateException("Cannot perform shift action in phase: " + room.getGamePhase());
-        }
-        return room;
-    }
-
-    public GameRoom performMoveAction(String roomId, UUID playerId, int moveToX, int moveToY) {
-        GameRoom room = roomService.getRoom(roomId);
-        gameValidator.validatePlayerTurn(room, playerId);
-        MoveActionContext context = new MoveActionContext(room, playerId, moveToX, moveToY);
-        BiConsumer<MoveActionContext, GameService> handler = moveActionHandlers.get(room.getGamePhase());
-        if (handler != null) {
-            handler.accept(context, this);
-        } else {
-            log.warn("No MOVE handler defined for game phase: {} in room {}", room.getGamePhase(), roomId);
-            throw new IllegalStateException("Cannot perform move action in phase: " + room.getGamePhase());
-        }
-        return room;
-    }
-
-    private static void handleShiftInShiftPhaseLogic(ShiftActionContext context, GameService self) {
-        GameRoom room = context.getRoom();
-        Player currentPlayer = context.getCurrentPlayer();
-
+    public void  performShiftAction(ShiftActionContext context) {
+        GameRoom gameRoom = context.getRoom();
+        Player currentPlayer = gameRoom.getCurrentPlayer();
+        gameValidator.validatePlayerTurn(gameRoom, context.getPlayerId());
         log.info("Player {} (ID: {}) performing SHIFT in room {}: index {}, direction {}",
-                currentPlayer.getName(), context.getPlayerId(), room.getRoomId(),
+                currentPlayer.getName(), context.getPlayerId(), gameRoom.getRoomId(),
                 context.getShiftIndex(), context.getShiftDirection());
 
-        self.boardShiftService.shiftBoard(room.getBoard(), context.getShiftIndex(),
-                context.getShiftDirection(), room.getPlayers());
-
-        room.setGamePhase(GamePhase.PLAYER_MOVE);
-        log.info("Room {} phase changed to PLAYER_TURN_MOVE for player {}",
-                room.getRoomId(), currentPlayer.getName());
-    }
-
-    private static void handleMoveInMovePhaseLogic(MoveActionContext context, GameService self) {
-        GameRoom room = context.getRoom();
-        Player currentPlayer = context.getCurrentPlayer();
-        Board board = room.getBoard();
-        if (room.getGamePhase() != GamePhase.PLAYER_MOVE) {
-            log.error("CRITICAL: handleMoveInMovePhaseLogic called in incorrect phase {} for room {}",
-                    room.getGamePhase(), room.getRoomId());
-            throw new IllegalStateException("Internal error: Move logic called in wrong phase.");
+        // 3. Выполняем основную логику сдвига
+        try {
+            // Делегируем сдвиг доски специализированному сервису
+            boardShiftService.shiftBoard(gameRoom.getBoard(), context.getShiftIndex(),
+                    context.getShiftDirection(), gameRoom.getPlayers());
+        } catch (IllegalArgumentException e) {
+            // Если boardShiftService обнаружил невалидные данные, "заворачиваем" ошибку
+            throw new GameLogicException(e.getMessage(), ErrorType.INVALID_SHIFT);
         }
 
+        // 4. После успешного сдвига меняем фазу игры на перемещение
+        gameRoom.setGamePhase(GamePhase.PLAYER_MOVE);
+        log.info("Room {} phase changed to PLAYER_MOVE for player {}",
+                gameRoom.getRoomId(), currentPlayer.getName());
+    }
+
+    public void performMoveAction(MoveActionContext context) {
+        GameRoom room = context.getRoom();
+        Player currentPlayer = room.getCurrentPlayer();
+        Board board = room.getBoard();
+        int targetX = context.getTargetX();
+        int targetY = context.getTargetY();
+
+        gameValidator.validatePlayerTurn(room, context.getPlayerId());
         log.info("Player {} (ID: {}) performing MOVE in room {}: to ({},{})",
                 currentPlayer.getName(), context.getPlayerId(), room.getRoomId(),
-                context.getTargetX(), context.getTargetY());
-        // Если игрок действительно пытается изменить позицию
-        if (currentPlayer.getCurrentX() != context.getTargetX() || currentPlayer.getCurrentY() != context.getTargetY()) {
-            // Проверяем возможность хода с помощью BFS
-            if (!self.canMoveTo(board, currentPlayer, context.getTargetX(), context.getTargetY())) {
-                log.warn("Player {} (ID: {}) cannot move from ({},{}) to ({},{}). Path not found.",
-                        currentPlayer.getName(), context.getPlayerId(), currentPlayer.getCurrentX(), currentPlayer.getCurrentY(),
-                        context.getTargetX(), context.getTargetY());
-                throw new IllegalArgumentException("Cannot move to the specified cell. No valid path.");
+                targetX, targetY);
+        if (currentPlayer.getCurrentX() != targetX || currentPlayer.getCurrentY() != targetY) {
+            // Проверяем, можно ли дойти до этой клетки
+            if (!canMoveTo(board, currentPlayer, targetX, targetY)) {
+                log.warn("Player {} cannot move from ({},{}) to ({},{}). Path not found.",
+                        currentPlayer.getName(),  currentPlayer.getCurrentX(), currentPlayer.getCurrentY(),
+                        targetX, targetY);
+                // Бросаем наше кастомное исключение с кодом ошибки
+                throw new GameLogicException("Cannot move to the specified cell. No valid path.", ErrorType.INVALID_MOVE);
             }
             // Перемещаем игрока
-            currentPlayer.moveTo(context.getTargetX(), context.getTargetY());
-            // Проверяем и собираем маркер, если он есть на новой клетке и является целью
-            self.collectMarkerIfPresent(board, currentPlayer);
+            currentPlayer.moveTo(targetX, targetY);
+            // Проверяем и собираем маркер
+            collectMarkerIfPresent(board, currentPlayer);
         } else {
-            log.info("Player {} (ID: {}) chose not to move (stayed at ({},{})) in room {}",
-                    currentPlayer.getName(), context.getPlayerId(), currentPlayer.getCurrentX(), currentPlayer.getCurrentY(), room.getRoomId());
+            log.info("Player {} chose not to move (stayed at ({},{})) in room {}",
+                    currentPlayer.getName(),  currentPlayer.getCurrentX(), currentPlayer.getCurrentY(), room.getRoomId());
         }
-        // ПРОВЕРКА УСЛОВИЙ ПОБЕДЫ
-        if (self.checkWinCondition(currentPlayer)) { // Передаем только игрока
-            room.setWinner(currentPlayer); // Устанавливаем победителя в комнате
-            room.setGamePhase(GamePhase.GAME_OVER); // Меняем фазу игры
-            log.info("Player {} (ID: {}) WON the game in room {}!",
-                    currentPlayer.getName(), context.getPlayerId(), room.getRoomId());
 
+        // 4. Проверяем, не победил ли игрок
+        if (checkWinCondition(currentPlayer)) {
+            room.setWinner(currentPlayer);
+            room.setGamePhase(GamePhase.GAME_OVER);
+            log.info("Player {} WON the game in room {}!", currentPlayer.getName(), room.getRoomId());
+            // Возвращаемся, так как ход передавать не нужно
             return;
         }
-        self.endTurn(room);
+
+        // 5. Если никто не победил, завершаем ход и передаем его следующему
+        endTurn(room);
     }
+
+
     private boolean checkWinCondition(Player player) {
         if (player == null) {
             return false;
@@ -254,7 +234,7 @@ public class GameService {
 
     public  GameRoom addPlayerToRoom(String roomId, Player newPlayer) {
         GameRoom room = roomService.getRoom(roomId);
-        roomService.validateRoomForJoin(room);
+        gameValidator.validateRoomForJoin(room);
         UUID newPlayerId = newPlayer.getId();
         boolean alreadyInRoom = room.getPlayers().stream()
                 .anyMatch(p -> p.getId().equals(newPlayerId));

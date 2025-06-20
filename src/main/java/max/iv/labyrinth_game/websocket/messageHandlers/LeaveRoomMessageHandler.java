@@ -2,12 +2,10 @@ package max.iv.labyrinth_game.websocket.messageHandlers;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import max.iv.labyrinth_game.exceptions.auth.ErrorType;
-import max.iv.labyrinth_game.model.game.GameRoom;
+import max.iv.labyrinth_game.exceptions.ErrorType;
 import max.iv.labyrinth_game.service.game.GameService;
 import max.iv.labyrinth_game.websocket.SessionManager;
 import max.iv.labyrinth_game.websocket.dto.BaseMessage;
-import max.iv.labyrinth_game.websocket.dto.ErrorMessageResponse;
 import max.iv.labyrinth_game.websocket.dto.GameMessageType;
 import max.iv.labyrinth_game.websocket.events.lobby.LobbyRoomListNeedsUpdateEvent;
 import max.iv.labyrinth_game.websocket.events.lobby.PlayerReturnedToLobbyEvent;
@@ -17,8 +15,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.util.UUID;
-
-import static max.iv.labyrinth_game.websocket.SessionManager.PLAYER_ID_ATTRIBUTE_KEY;
 
 @Slf4j
 @Component

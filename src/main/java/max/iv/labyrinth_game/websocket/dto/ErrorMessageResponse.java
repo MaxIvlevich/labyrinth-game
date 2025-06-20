@@ -3,7 +3,7 @@ package max.iv.labyrinth_game.websocket.dto;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import max.iv.labyrinth_game.exceptions.auth.ErrorType;
+import max.iv.labyrinth_game.exceptions.ErrorType;
 
 @Data
 @NoArgsConstructor

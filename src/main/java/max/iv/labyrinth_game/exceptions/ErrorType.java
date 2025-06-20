@@ -1,4 +1,4 @@
-package max.iv.labyrinth_game.exceptions.auth;
+package max.iv.labyrinth_game.exceptions;
 
 public enum ErrorType {
 

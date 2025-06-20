@@ -3,7 +3,13 @@ package max.iv.labyrinth_game.websocket.messageHandlers;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
+import max.iv.labyrinth_game.exceptions.ErrorType;
+import max.iv.labyrinth_game.exceptions.game.GameLogicException;
+import max.iv.labyrinth_game.model.game.GameRoom;
 import max.iv.labyrinth_game.service.game.GameService;
+import max.iv.labyrinth_game.service.game.RoomService;
+import max.iv.labyrinth_game.service.game.actions.GameActionDispatcher;
+import max.iv.labyrinth_game.service.game.actions.ShiftActionContext;
 import max.iv.labyrinth_game.websocket.GameStateBroadcaster;
 import max.iv.labyrinth_game.websocket.SessionManager;
 import max.iv.labyrinth_game.websocket.dto.BaseMessage;
@@ -19,18 +25,20 @@ import java.util.UUID;
 @Component
 public class PlayerShiftActionMessageHandler implements WebSocketMessageHandler{
 
-    private final GameService gameService;
+    private final GameActionDispatcher actionDispatcher;
+    private final RoomService roomService;
     private final SessionManager sessionManager;
     private final GameStateBroadcaster gameStateBroadcaster;
     private final ObjectMapper objectMapper;
     private final Validator validator;
 
     @Autowired
-    public PlayerShiftActionMessageHandler(GameService gameService,
-                                           SessionManager sessionManager,
+    public PlayerShiftActionMessageHandler(
+                                           GameActionDispatcher actionDispatcher, RoomService roomService, SessionManager sessionManager,
                                            GameStateBroadcaster gameStateBroadcaster,
                                            ObjectMapper objectMapper, Validator validator) {
-        this.gameService = gameService;
+        this.actionDispatcher = actionDispatcher;
+        this.roomService = roomService;
         this.sessionManager = sessionManager;
         this.gameStateBroadcaster = gameStateBroadcaster;
         this.objectMapper = objectMapper;
@@ -54,7 +62,6 @@ public class PlayerShiftActionMessageHandler implements WebSocketMessageHandler{
         if (sessionManager.validateRequestAndSendError(session, request, validator, "CREATE_ROOM")) {
             return;
         }
-
         UUID playerId = sessionManager.getPlayerIdBySession(session);
         String roomIdFromSession = sessionManager.getRoomIdBySession(session);
 
@@ -84,20 +91,27 @@ public class PlayerShiftActionMessageHandler implements WebSocketMessageHandler{
                 playerId, request.getRoomId(), request.getShiftIndex(), request.getShiftDirection());
 
         try {
+            GameRoom room = roomService.getRoom(roomIdFromSession);
+            // 2. Создаем контекст для действия
+            ShiftActionContext context = new ShiftActionContext(room, playerId,
+                    request.getShiftIndex(),
+                    request.getShiftDirection());
             // Вызываем GameService для выполнения сдвига
-            gameService.performShiftAction(request.getRoomId(), playerId, request.getShiftIndex(), request.getShiftDirection());
+            actionDispatcher.dispatchShiftAction(context);
 
             // Рассылаем обновленное состояние игры всем в комнате
             gameStateBroadcaster.broadcastGameStateToRoom(request.getRoomId());
 
             log.info("Player {} successfully performed SHIFT in room {}.", playerId, request.getRoomId());
 
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            log.warn("Shift action failed for player {} in room {}: {}", playerId, request.getRoomId(), e.getMessage());
-            sessionManager.sendErrorMessageToSession(session, "Shift action failed: " + e.getMessage(), objectMapper);
+        } catch (GameLogicException e) {
+            log.warn("Shift action failed for player {}: Type={}, Message={}",
+                    playerId, e.getErrorType(), e.getMessage());
+            sessionManager.sendErrorMessageToSession(session, e.getMessage(), e.getErrorType());
         } catch (Exception e) { // Ловим другие возможные ошибки от сервисов
-            log.error("Unexpected error during SHIFT action for player {} in room {}: {}", playerId, request.getRoomId(), e.getMessage(), e);
-            sessionManager.sendErrorMessageToSession(session, "An unexpected error occurred during the shift action.", objectMapper);
+            log.error("Unexpected error during SHIFT action for player {}: {}",
+                    playerId, e.getMessage(), e);
+            sessionManager.sendErrorMessageToSession(session, "An unexpected server error occurred.", ErrorType.UNKNOWN_ERROR);
         }
     }
 }
