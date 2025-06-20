@@ -37,10 +37,17 @@ body {
 
 /* Стили для "шапки" сайта */
 .main-header {
-    text-align: center;
+    display: flex;                  /* 1. Включаем Flexbox */
+    justify-content: space-between; /* 2. Расталкиваем дочерние элементы по краям */
+    align-items: center;            /* 3. Выравниваем все по вертикали */
     padding-bottom: 20px;
     margin-bottom: 20px;
     border-bottom: 2px solid #ddd;
+}
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: 20px; /* Расстояние между лого и h1 */
 }
 
 .logo {
@@ -276,10 +283,6 @@ h1 {
 }
 
 .btn-logout {
-    position: absolute;
-    top: 50%;
-    right: 0;
-    transform: translateY(-50%);
     background-color: #6c757d;
     color: white;
     border-color: #6c757d;
@@ -287,7 +290,17 @@ h1 {
 .btn-logout:hover {
     background-color: #5a6268;
     border-color: #545b62;
-}.user-display {
+}
+#username-display {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #333; /* Темно-серый цвет текста */
+    padding: 8px 16px; /* Внутренние отступы, чтобы текст не прилипал к краям */
+    background-color: rgba(0, 0, 0, 0.05); /* Очень легкий, почти прозрачный серый фон */
+    border-radius: 20px; /* Сильно скругленные углы для вида "таблетки" */
+    border: 1px solid rgba(0, 0, 0, 0.08); /* Тонкая, едва заметная рамка */
+}
+.user-display {
      position: absolute;
      top: 10px;
      right: 20px;
@@ -447,13 +460,12 @@ h1 {
     text-decoration: underline;
 }
 .user-info-header {
-    position: absolute;  /* Вырываем блок из потока */
-    top: 50%;            /* Смещаем на 50% высоты родителя (шапки) */
-    right: 0;            /* Прижимаем к правому краю шапки */
-    transform: translateY(-50%); /* Центрируем по вертикали идеально */
-
     /* Стили для внешнего вида блока */
     display: flex;
     align-items: center;
     gap: 15px;
+}
+.header-link {
+    text-decoration: none; /* Убираем подчеркивание */
+    color: inherit; /* Наследуем цвет текста от родителя */
 }

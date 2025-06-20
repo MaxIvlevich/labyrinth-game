@@ -3,6 +3,7 @@ package max.iv.labyrinth_game.websocket.messageHandlers;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
+import max.iv.labyrinth_game.exceptions.auth.ErrorType;
 import max.iv.labyrinth_game.model.game.Base;
 import max.iv.labyrinth_game.model.game.GameRoom;
 import max.iv.labyrinth_game.model.game.Player;
@@ -68,13 +69,13 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler {
             String userName = (String) session.getAttributes().get(USER_NAME_ATTRIBUTE_KEY);
 
             if (userId == null || userName == null) {
-                sessionManager.sendErrorMessageToSession(session, "Authentication error. Cannot join room.");
+                sessionManager.sendErrorMessageToSession(session, "Authentication error. Cannot join room.", ErrorType.UNAUTHORIZED);
                 return;
             }
 
             // Проверяем, не сидит ли эта СЕССИЯ уже в какой-то комнате
             if (sessionManager.getRoomIdBySession(session) != null) {
-                sessionManager.sendErrorMessageToSession(session, "Your current session is already in a room. Leave it first.");
+                sessionManager.sendErrorMessageToSession(session, "Your current session is already in a room. Leave it first.",ErrorType.DOUBLE_SESSION_AUTHORIZED);
                 return;
             }
 
@@ -85,7 +86,7 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler {
                 // 1. Создаем объект игрока
                 Player newPlayer = new Player(userId, userName, new Base(0, 0, Set.of()));
 
-                // 2. Вся логика присоединения и проверок теперь внутри GameService
+                // 2. проверяем и присоединяем
                 gameService.addPlayerToRoom(roomIdToJoin, newPlayer);
 
                 // 3. Если не было исключений, значит все прошло успешно. Ассоциируем сессию.
@@ -102,7 +103,7 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler {
                 // GameService выбросит исключение, если что-то пошло не так (комната не найдена, полная и т.д.)
                 log.warn("Failed to process JOIN_ROOM for player {} into room {}: {}", userId, roomIdToJoin, e.getMessage());
                 // Отправляем понятное сообщение об ошибке на фронт
-                sessionManager.sendErrorMessageToSession(session, e.getMessage());
+                sessionManager.sendErrorMessageToSession(session, e.getMessage(),objectMapper);
             }
     }
 }

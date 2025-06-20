@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
+import max.iv.labyrinth_game.exceptions.auth.ErrorType;
 import max.iv.labyrinth_game.websocket.dto.ErrorMessageResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -159,16 +160,16 @@ public class SessionManager{
             String fullErrorMessage = "Validation failed for " + actionName + " request: " + errorMessages;
 
             log.warn("{} from session {}: {}", fullErrorMessage, session.getId(), errorMessages);
-            sendErrorMessageToSession(session, fullErrorMessage);
+            sendErrorMessageToSession(session, fullErrorMessage,ErrorType.VALIDATION_ERROR);
             return true;
         }
         return false;
     }
 
-    public void sendErrorMessageToSession(WebSocketSession session, String messageText) {
+    public void sendErrorMessageToSession(WebSocketSession session, String messageText, ErrorType errorType) {
         if (session != null && session.isOpen()) {
             try {
-                ErrorMessageResponse errorResponse = new ErrorMessageResponse(messageText); // Предполагаем DTO
+                ErrorMessageResponse errorResponse = new ErrorMessageResponse(messageText,errorType);
                 String jsonMessage = this.objectMapper.writeValueAsString(errorResponse);
                 session.sendMessage(new TextMessage(jsonMessage));
             } catch (IOException e) {
@@ -267,7 +268,8 @@ public class SessionManager{
             WebSocketSession oldSession = allActiveSessions.get(oldSessionId);
             if (oldSession != null && oldSession.isOpen()) {
                 try {
-                    sendErrorMessageToSession(oldSession, "Your session was terminated because you logged in from another device.");
+                    sendErrorMessageToSession(oldSession, "Your session was terminated because you logged in from another device.",
+                            ErrorType.DOUBLE_SESSION_AUTHORIZED);
                     oldSession.close(CloseStatus.POLICY_VIOLATION.withReason("New session initiated"));
                 } catch (Exception e) {
                     log.error("Error closing old session {}: {}", oldSessionId, e.getMessage());

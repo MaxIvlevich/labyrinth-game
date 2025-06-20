@@ -73,18 +73,27 @@ public class CreateRoomMessageHandler implements WebSocketMessageHandler{
                 session.getId(), request.getMaxPlayers());
         try {
             // 1. Создаем комнату через RoomService
-            GameRoom createdRoom = roomService.createRoom(request.getMaxPlayers(),request.getName());
-            log.info("Room {} created by RoomService.", createdRoom.getRoomId());
-            String roomId = createdRoom.getRoomId();
+
 
             // 2. Создаем игрока-создателя
             UUID userId = (UUID) session.getAttributes().get(USER_ID_ATTRIBUTE_KEY);
             String userName = (String) session.getAttributes().get(USER_NAME_ATTRIBUTE_KEY);
+
             if (userId == null || userName == null) {
                 log.warn("User ID or Name not found in session attributes for session {}. User must be authenticated.", session.getId());
                 sessionManager.sendErrorMessageToSession(session, "User authentication required to create a room.", objectMapper);
                 return;
             }
+            String roomNameFromRequest = request.getName() != null ? request.getName().trim() : "";
+            String finalRoomName = roomNameFromRequest.isEmpty()
+                    ? "Комната " + userName
+                    : roomNameFromRequest;
+
+            GameRoom createdRoom = roomService.createRoom(request.getMaxPlayers(),finalRoomName);
+
+            log.info("Room {} created with name '{}' by user '{}'.",
+                    createdRoom.getRoomId(), finalRoomName, userName);
+            String roomId = createdRoom.getRoomId();
             Player creator = new Player(userId, userName, new Base(0, 0, Set.of()));
 
             // 3. Добавляем создателя в комнату через GameService

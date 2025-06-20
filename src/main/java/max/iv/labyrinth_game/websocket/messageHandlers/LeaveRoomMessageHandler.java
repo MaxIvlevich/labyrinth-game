@@ -2,6 +2,7 @@ package max.iv.labyrinth_game.websocket.messageHandlers;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import max.iv.labyrinth_game.exceptions.auth.ErrorType;
 import max.iv.labyrinth_game.model.game.GameRoom;
 import max.iv.labyrinth_game.service.game.GameService;
 import max.iv.labyrinth_game.websocket.SessionManager;
@@ -62,7 +63,7 @@ public class LeaveRoomMessageHandler implements WebSocketMessageHandler {
 
         } catch (Exception e) {
             log.error("Error processing LEAVE_ROOM for player {} in room {}: {}", playerId, roomId, e.getMessage(), e);
-            sessionManager.sendErrorMessageToSession(session, "Error while trying to leave the room.");
+            sessionManager.sendErrorMessageToSession(session, "Error while trying to leave the room.", ErrorType.UNKNOWN_ERROR);
         }
     }
 }

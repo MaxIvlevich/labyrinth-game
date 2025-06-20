@@ -68,9 +68,14 @@ function render() {
         return;
     }
 
+    console.log("[Отладка] Запущена функция render()");
     const usernameDisplay = document.getElementById('username-display');
     if (usernameDisplay) {
+        console.log("[Отладка] Элемент #username-display НАЙДЕН в DOM.");
+        console.log(`[Отладка] Устанавливаю текст: "${localUsername}"`);
         usernameDisplay.textContent = localUsername || 'Игрок';
+    } else {
+        console.error("[Отладка] Элемент #username-display НЕ НАЙДЕН в DOM! Проверьте HTML.");
     }
 
     if (globalState.view === 'loading') {
@@ -125,8 +130,9 @@ function generateLobbyHTML(rooms) {
 }
 
 function generateGameHTML(gameState) {
-    const { roomId, currentPhase, currentPlayerId, players } = gameState;
+    const { roomId, roomName,currentPhase, currentPlayerId, players } = gameState;
     const currentPlayer = players.find(p => p.id === currentPlayerId);
+    const headerTitle = roomName || `Комната: #${roomId.substring(0, 6)}`;
 
     const playersHTML = players.map(player => {
         const isCurrentClass = player.id === currentPlayerId ? 'is-current-player' : '';
@@ -145,7 +151,7 @@ function generateGameHTML(gameState) {
 
     return `
         <div class="game-header">
-            <h2>Комната: #${roomId.substring(0, 6)}...</h2>
+            <h2>${headerTitle}</h2> 
             <button id="leave-room-btn" class="btn">Выйти в лобби</button>
         </div>
         <div class="game-layout">
@@ -266,7 +272,39 @@ function handleServerMessage(message) {
             render();
             break;
         case 'ERROR_MESSAGE':
-            alert(`Ошибка от сервера: ${msg.message}`);
+            // Проверяем наличие специального кода ошибки
+            switch (msg.errorType) {
+
+                case 'ROOM_NOT_FOUND':
+                    // Если мы получили ошибку "комната не найдена",
+                    // и мы действительно пытались войти в комнату
+                    if (localStorage.getItem('currentRoomId')) {
+                        console.warn("Попытка переподключения не удалась: комната не найдена. Переход в лобби.");
+                        localStorage.removeItem('currentRoomId');
+                        globalState.view = 'lobby';
+                        globalState.game = null;
+                        sendWebSocketMessage({ type: 'GET_ROOM_LIST_REQUEST' });
+                        render();
+                    } else {
+                        // Если мы получили эту ошибку, не находясь в комнате, просто покажем ее
+                        alert(msg.message);
+                    }
+                    break;
+
+                // Здесь можно будет добавить обработку других кодов ошибок
+                case 'NOT_YOUR_TURN':
+                    // Например, подсветить, чей сейчас ход
+                    console.warn(msg.message);
+                    // Можно показать короткое всплывающее уведомление вместо alert
+                    showToast(msg.message);
+                    break;
+
+                // Ошибка по умолчанию для всех остальных кодов
+                default:
+                    console.error(`Получена необработанная ошибка: ${msg.errorType} - ${msg.message}`);
+                    alert(`Ошибка: ${msg.message}`);
+                    break;
+            }
             break;
         case 'WELCOME_MESSAGE':
             break; // Игнорируем, так как запрос списка идет в onopen

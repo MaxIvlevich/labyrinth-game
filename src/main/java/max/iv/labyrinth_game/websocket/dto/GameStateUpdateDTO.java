@@ -10,6 +10,8 @@ import java.util.UUID;
 public record GameStateUpdateDTO (
         GameMessageType type,
         String roomId,
+
+        String roomName,
         GamePhase currentPhase,
         UUID currentPlayerId,
         List<PlayerDTO> players,
@@ -18,11 +20,11 @@ public record GameStateUpdateDTO (
         String winnerName
 ) {
 
-    public GameStateUpdateDTO(String roomId, GamePhase currentPhase, UUID currentPlayerId, List<PlayerDTO> players, BoardDTO board) {
-        this(GameMessageType.GAME_STATE_UPDATE, roomId, currentPhase, currentPlayerId, players, board, null, null);
+    public GameStateUpdateDTO(String roomId, String roomName,GamePhase currentPhase, UUID currentPlayerId, List<PlayerDTO> players, BoardDTO board) {
+        this(GameMessageType.GAME_STATE_UPDATE, roomId, roomName,currentPhase, currentPlayerId, players, board, null, null);
     }
 
-    public GameStateUpdateDTO(String roomId, GamePhase currentPhase, List<PlayerDTO> players, BoardDTO board, UUID winnerId, String winnerName) {
-        this(GameMessageType.GAME_STATE_UPDATE, roomId, currentPhase, null, players, board, winnerId, winnerName);
+    public GameStateUpdateDTO(String roomId, String roomName,GamePhase currentPhase, List<PlayerDTO> players, BoardDTO board, UUID winnerId, String winnerName) {
+        this(GameMessageType.GAME_STATE_UPDATE, roomId,roomName, currentPhase, null, players, board, winnerId, winnerName);
     }
 }

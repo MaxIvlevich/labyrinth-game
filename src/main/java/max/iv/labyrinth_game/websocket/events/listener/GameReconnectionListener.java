@@ -1,11 +1,13 @@
 package max.iv.labyrinth_game.websocket.events.listener;
 
 import lombok.extern.slf4j.Slf4j;
+import max.iv.labyrinth_game.exceptions.auth.ErrorType;
 import max.iv.labyrinth_game.model.game.GameRoom;
 import max.iv.labyrinth_game.model.game.Player;
 import max.iv.labyrinth_game.model.game.enums.PlayerStatus;
 import max.iv.labyrinth_game.service.game.RoomService;
 import max.iv.labyrinth_game.websocket.SessionManager;
+import max.iv.labyrinth_game.websocket.dto.ErrorMessageResponse;
 import max.iv.labyrinth_game.websocket.events.lobby.PlayerReturnedToLobbyEvent;
 import max.iv.labyrinth_game.websocket.events.lobby.RoomStateNeedsBroadcastEvent;
 import max.iv.labyrinth_game.websocket.events.room.PlayerReconnectedToRoomEvent;
@@ -39,8 +41,6 @@ public class GameReconnectionListener {
 
         try {
             GameRoom room = roomService.getRoom(roomId);
-
-
             Optional<Player> playerOpt = room.getPlayers().stream()
                     .filter(p -> p.getId().equals(playerId))
                     .findFirst();
@@ -60,15 +60,15 @@ public class GameReconnectionListener {
 
             } else {
                 log.warn("Player {} tried to reconnect to room {}, but is not a member.", playerId, roomId);
-                sessionManager.sendErrorMessageToSession(session, "You are no longer part of this room.");
-
-                // Возможно, стоит вернуть его в лобби
+                sessionManager.sendErrorMessageToSession(session, "You are no longer part of this room.",ErrorType.ROOM_NOT_FOUND);
+                // стоит вернуть его в лобби
                 sessionManager.returnPlayerToLobby(session.getId());
                 eventPublisher.publishEvent(new PlayerReturnedToLobbyEvent(this, session, playerId));
             }
         } catch (IllegalArgumentException e) { // Например, roomService.getRoom() не нашел комнату
             log.warn("Player {} tried to reconnect to a non-existent room {}", playerId, roomId);
-            sessionManager.sendErrorMessageToSession(session, "The room you were in no longer exists.");
+            sessionManager.sendErrorMessageToSession(session,
+                    "The room you were in no longer exists.", ErrorType.ROOM_NOT_FOUND);
             sessionManager.returnPlayerToLobby(session.getId());
             eventPublisher.publishEvent(new PlayerReturnedToLobbyEvent(this, session, playerId));
         }

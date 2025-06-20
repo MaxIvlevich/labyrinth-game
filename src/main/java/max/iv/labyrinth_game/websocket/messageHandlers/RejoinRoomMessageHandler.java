@@ -1,6 +1,7 @@
 package max.iv.labyrinth_game.websocket.messageHandlers;
 
 import lombok.extern.slf4j.Slf4j;
+import max.iv.labyrinth_game.exceptions.auth.ErrorType;
 import max.iv.labyrinth_game.websocket.SessionManager;
 import max.iv.labyrinth_game.websocket.dto.BaseMessage;
 import max.iv.labyrinth_game.websocket.dto.GameMessageType;
@@ -36,7 +37,7 @@ public class RejoinRoomMessageHandler implements WebSocketMessageHandler{
         String roomId = request.getRoomId();
 
         if (playerId == null || roomId == null || roomId.isBlank()) {
-            sessionManager.sendErrorMessageToSession(session, "Invalid reconnect request. Authentication or room ID is missing.");
+            sessionManager.sendErrorMessageToSession(session, "Invalid reconnect request. Authentication or room ID is missing.", ErrorType.NULL_REQUEST);
             return;
         }
 

@@ -32,6 +32,7 @@ public class GameStateMapper {
             return new GameStateUpdateDTO(
                     GameMessageType.GAME_STATE_UPDATE,
                     "ROOM_NOT_FOUND_OR_NULL",
+                    "ROOM_NOT_FOUND_OR_NULL",
                     GamePhase.WAITING_FOR_PLAYERS,
                     null,
                     Collections.emptyList(),
@@ -69,6 +70,7 @@ public class GameStateMapper {
         return new GameStateUpdateDTO(
                 GameMessageType.GAME_STATE_UPDATE, // Устанавливаем тип сообщения
                 room.getRoomId(),
+                room.getRoomName(),
                 room.getGamePhase(),
                 currentPlayerId,
                 playerDTOs,
