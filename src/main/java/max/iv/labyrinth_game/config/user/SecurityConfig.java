@@ -52,7 +52,7 @@ public class SecurityConfig {
                         // Разрешаем доступ без аутентификации к следующим эндпоинтам: "/", "/index.html",
                         .requestMatchers("/api/auth/**").permitAll() // Эндпоинты для логина и регистрации
                         .requestMatchers("/game/**","/error").permitAll()
-                        .requestMatchers( "/index.html","/login.html", "/signup.html", "/style.css", "/script.js").permitAll()
+                        .requestMatchers( "/","/index.html","/login.html", "/signup.html", "/style.css", "/script.js").permitAll()
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
                         .anyRequest().authenticated()
                 );

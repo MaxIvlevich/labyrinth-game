@@ -8,10 +8,57 @@ let globalState = {
 
 // Константы, которые мы получаем при загрузке страницы
 const localAccessToken = localStorage.getItem('accessToken');
-const localUserId = localStorage.getItem('userId');
 const localUsername = localStorage.getItem('username');
 let socket = null;
 const cellSize = 50;
+let messageQueue = [];
+let isRefreshingToken = false;
+const RETRY_DELAY_MS = 2000;
+let connectionRetries = 0;
+const MAX_RETRIES = 5;
+
+
+async function refreshToken() {
+    console.log("Попытка обновить токен...");
+    const currentRefreshToken = localStorage.getItem('refreshToken');
+
+    if (!currentRefreshToken) {
+        console.log("Refresh-токен не найден. Невозможно обновить.");
+        return false;
+    }
+
+    try {
+        const response = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken: currentRefreshToken })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log("Токены успешно обновлены.");
+            // Сохраняем новую пару токенов
+            localStorage.setItem('accessToken', data.accessToken);
+            localStorage.setItem('refreshToken', data.refreshToken);
+            // Если сервер возвращает и другие данные (username, userId), их тоже можно обновить
+            if (data.username) localStorage.setItem('username', data.username);
+            if (data.userId) localStorage.setItem('userId', data.userId);
+
+            return true; // Успех
+        } else {
+            // Сервер отклонил наш refresh-токен (он тоже протух или был отозван)
+            console.error("Не удалось обновить токен. Ответ сервера:", data.message || response.statusText);
+            return false; // Неудача
+        }
+    } catch (error) {
+        console.error("Ошибка сети при обновлении токена:", error);
+        return false; // Неудача
+    }
+}
+
+
+
 
 // ================= ГЛАВНАЯ ФУНКЦИЯ ОТРИСОВКИ (RENDER) =================
 function render() {
@@ -228,46 +275,130 @@ function handleServerMessage(message) {
     }
 }
 
-function initializeWebSocket(token) {
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//${window.location.host}/game?token=${encodeURIComponent(token)}`;
+
+function initializeWebSocket() {
+    if (socket || connectionRetries > 0 && connectionRetries < MAX_RETRIES) {
+        return;
+    }
+    const accessToken = localStorage.getItem('accessToken');
+    if (!accessToken) {
+        redirectToLogin(); // Если токена нет, сразу на логин
+        return;
+    }
+
+    console.log("Пытаюсь подключиться к WebSocket...");
+    const wsUrl = `ws://${window.location.host}/game?token=${encodeURIComponent(accessToken)}`;
     socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
-        console.log('WebSocket connection opened successfully.');
-        const savedRoomId = localStorage.getItem('currentRoomId');
-        if (savedRoomId) {
-            sendWebSocketMessage({ type: 'RECONNECT_TO_ROOM', roomId: savedRoomId });
+        console.log("WebSocket-соединение успешно открыто.");
+        connectionRetries = 0;
+
+        // Если в очереди уже есть какие-то действия от пользователя, выполняем их
+        if (messageQueue.length > 0) {
+            console.log(`В очереди есть ${messageQueue.length} действий пользователя. Выполняю их.`);
         } else {
-            globalState.view = 'lobby';
-            render();
-            sendWebSocketMessage({ type: 'GET_ROOM_LIST_REQUEST' });
+            // Если пользователь ничего не нажимал, выполняем логику по умолчанию
+            const savedRoomId = localStorage.getItem('currentRoomId');
+            if (savedRoomId) {
+                console.log("Очередь пуста. Запрашиваю переподключение к комнате.");
+                messageQueue.push({ type: 'RECONNECT_TO_ROOM', roomId: savedRoomId });
+            } else {
+                console.log("Очередь пуста. Запрашиваю список комнат.");
+                messageQueue.push({ type: 'GET_ROOM_LIST_REQUEST' });
+            }
+        }
+
+        // Отправляем все, что есть в очереди (либо действия пользователя, либо дефолтный запрос)
+        while (messageQueue.length > 0) {
+            const message = messageQueue.shift();
+            sendWebSocketMessage(message);
         }
     };
 
-    socket.onmessage = handleServerMessage;
-    socket.onclose = (event) => {
-        if (!event.wasClean) alert('Соединение с сервером потеряно. Пожалуйста, обновите страницу.');
+    socket.onmessage = handleServerMessage; // обработчик
+
+    socket.onerror = (errorEvent) => {
+        console.error("Произошла ошибка WebSocket.", errorEvent);
     };
-    socket.onerror = (error) => console.error('WebSocket Error:', error);
+
+
+    socket.onclose = async (closeEvent) => {
+        socket = null;
+        console.log(`Соединение закрыто. Код: ${closeEvent.code}`);
+
+        // Если закрытие штатное (сервер выключился, пользователь вышел), ничего не делаем.
+        if (closeEvent.code === 1000 || closeEvent.code === 1001) {
+            console.log("Штатное закрытие. Переподключение не требуется.");
+            return;
+        }
+
+        // Если произошел обрыв связи, вызываем специальный обработчик.
+        await handleUnexpectedDisconnection();
+    };
+
+}
+async function handleUnexpectedDisconnection() {
+    // Если уже превысили лимит попыток, сдаемся.
+    if (connectionRetries >= MAX_RETRIES) {
+        console.error("Достигнут лимит попыток переподключения. Перенаправление на страницу входа.");
+        redirectToLogin();
+        return;
+    }
+
+    connectionRetries++;
+    console.log(`Попытка переподключения №${connectionRetries} через ${RETRY_DELAY_MS / 1000} сек...`);
+
+    // Ждем перед следующей попыткой
+    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+
+    // Пробуем обновить токен. Это может не получиться, если сервер еще не поднялся.
+    if (!isRefreshingToken) {
+        isRefreshingToken = true;
+        const refreshed = await refreshToken();
+        isRefreshingToken = false;
+
+        if (refreshed) {
+            console.log("Токен успешно обновлен перед переподключением.");
+            // Отлично, мы добились прогресса. Можно сбросить счетчик.
+            connectionRetries = 0;
+        } else {
+            console.warn("Не удалось обновить токен (возможно, сервер недоступен или refresh-токен невалиден).");
+        }
+    }
+
+    // Пробуем инициализировать соединение заново.
+    // Если снова не получится, `onclose` вызовет эту же функцию снова.
+    initializeWebSocket();
+}
+// ================= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =================
+
+function redirectToLogin() {
+    // Предотвращаем случайное зацикливание
+    if (window.location.pathname === '/login.html') return;
+
+    console.warn("Перенаправление на страницу входа. localStorage будет очищен.");
+    localStorage.clear();
+    window.location.replace('/login.html');
 }
 
 function sendWebSocketMessage(payload) {
     // 1. Проверяем, что сокет существует и соединение открыто
     if (socket && socket.readyState === WebSocket.OPEN) {
-        // 2. Превращаем наш JavaScript объект в строку JSON
-        const jsonPayload = JSON.stringify(payload);
+        socket.send(JSON.stringify(payload));
+        return; // Сообщение отправлено, выходим.
+    }
 
-        // 3. Логируем в консоль то, что отправляем (
-        console.log("Client -> Server:", payload);
+    // Если сокет не готов, мы не выбрасываем ошибку, а сохраняем сообщение.
+    console.log("Сокет не готов. Сообщение добавлено в очередь:", payload);
+    messageQueue.push(payload);
 
-        // 4. Отправляем строку на сервер
-        socket.send(jsonPayload);
-    } else {
-        // 5. Если сокет не готов, выводим ошибку. Это помогает ловить проблемы с соединением.
-        console.error('WebSocket is not open. Cannot send message:', payload);
-        alert('Не удалось отправить данные. Потеряно соединение с сервером.');
-    }}
+    // Если подключения нет вообще (например, страница только загрузилась),
+    // и пользователь сразу нажал кнопку, мы инициируем подключение.
+    if (!socket && connectionRetries === 0) {
+        initializeWebSocket();
+    }
+}
 
 // ================= ЛОГИКА ОТРИСОВКИ ПОЛЯ =================
 // Главная функция отрисовки доски, вызывается из render()
@@ -443,7 +574,10 @@ document.addEventListener('DOMContentLoaded', () => {
         globalState.view = 'lobby';
         globalState.isLoading = false;
     }
-
-    render();
-    initializeWebSocket(localAccessToken);
+    if (!localStorage.getItem('accessToken')) {
+        redirectToLogin();
+    } else {
+        render();
+        initializeWebSocket();
+    }
 });

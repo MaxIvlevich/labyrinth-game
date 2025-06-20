@@ -117,8 +117,7 @@ h1 {
 
 .btn:hover {
     background-color: #e0e0e0;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .btn-primary {
@@ -130,6 +129,7 @@ h1 {
 .btn-primary:hover {
     background-color: #218838;
     border-color: #1e7e34;
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
 }
 
 .btn-icon {
@@ -447,11 +447,12 @@ h1 {
     text-decoration: underline;
 }
 .user-info-header {
-    position: absolute;
-    top: 50%;
-    right: 0;
-    transform: translateY(-50%);
+    position: absolute;  /* Вырываем блок из потока */
+    top: 50%;            /* Смещаем на 50% высоты родителя (шапки) */
+    right: 0;            /* Прижимаем к правому краю шапки */
+    transform: translateY(-50%); /* Центрируем по вертикали идеально */
 
+    /* Стили для внешнего вида блока */
     display: flex;
     align-items: center;
     gap: 15px;
