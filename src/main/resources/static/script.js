@@ -16,6 +16,24 @@ let isRefreshingToken = false;
 const RETRY_DELAY_MS = 2000;
 let connectionRetries = 0;
 const MAX_RETRIES = 5;
+const CELL_SIZE = 60;
+
+const TILE_THEMES = {
+    // Тема по умолчанию
+    'classic': {
+        name: 'Классика', // Название для отображения в настройках
+        path: '/images/tiles/classic/', // Путь к папке с изображениями этой темы
+        extension: 'png', // Расширение файлов
+        // Даже если вариант один, он должен быть в массиве
+        variants: {
+            straight: ['straight'],
+            corner:   ['corner'],
+            t_shaped: ['t_shaped']
+        }
+    },
+    // Здесь можно будет добавлять другие темы, например 'space' или 'fantasy'
+};
+let currentTheme = localStorage.getItem('selectedTheme') || 'classic';
 
 
 async function refreshToken() {
@@ -84,7 +102,7 @@ function render() {
         appContainer.innerHTML = generateLobbyHTML(globalState.rooms);
     } else if (globalState.view === 'game' && globalState.game) {
         appContainer.innerHTML = generateGameHTML(globalState.game);
-        renderGameBoard(globalState.game.board, globalState.game.players);
+        renderGameBoard(globalState.game);
     } else {
         // Это состояние может возникнуть, если мы в игре, но данных еще нет
         appContainer.innerHTML = '<h2>Загрузка данных комнаты...</h2>';
@@ -193,10 +211,13 @@ function bindAppEvents() {
         }
 
         if (target.closest('#leave-room-btn')) {
+            console.log("Нажата кнопка 'Выйти из комнаты'");
+             LoadingAnimator.stop();
             sendWebSocketMessage({ type: 'LEAVE_ROOM' });
+            globalState.game = null;
             localStorage.removeItem('currentRoomId');
             globalState.view = 'lobby';
-            globalState.game = null;
+            sendWebSocketMessage({ type: 'GET_ROOM_LIST_REQUEST' });
             render();
         }
     });
@@ -237,9 +258,12 @@ function bindStaticEvents() {
         if (!createRoomForm.dataset.handlerAttached) {
             createRoomForm.addEventListener('submit', (event) => {
                 event.preventDefault();
+                globalState.view = 'game';
+                globalState.game = null;
+                render();
+
                 const roomName = document.getElementById('room-name-input').value;
                 const maxPlayers = parseInt(document.getElementById('max-players-select').value, 10);
-
                 sendWebSocketMessage({
                     type: 'CREATE_ROOM',
                     name: roomName,
@@ -260,14 +284,13 @@ function handleServerMessage(message) {
     switch (msg.type) {
         case 'ROOM_LIST_UPDATE':
             globalState.rooms = msg.rooms;
-            if (globalState.view === 'lobby') {
-                render();
-            }
+            globalState.view = 'lobby';
+            localStorage.removeItem('currentRoomId');
+            render();
             break;
         case 'GAME_STATE_UPDATE':
             globalState.game = msg;
             globalState.view = 'game';
-            globalState.isLoading = false;
             localStorage.setItem('currentRoomId', msg.roomId);
             render();
             break;
@@ -289,6 +312,9 @@ function handleServerMessage(message) {
                         // Если мы получили эту ошибку, не находясь в комнате, просто покажем ее
                         alert(msg.message);
                     }
+                    break;
+                case 'ROOM_CREATED':
+                    console.log("Получено подтверждение создания комнаты. Ожидаем состояние игры...");
                     break;
 
                 // Здесь можно будет добавить обработку других кодов ошибок
@@ -439,157 +465,153 @@ function sendWebSocketMessage(payload) {
 
 // ================= ЛОГИКА ОТРИСОВКИ ПОЛЯ =================
 // Главная функция отрисовки доски, вызывается из render()
-function renderGameBoard(boardData, playersData) {
-    // Находим главный контейнер для всего, что связано с доской
+function renderGameBoard(gameState) {
     const wrapper = document.getElementById('game-board-wrapper');
-    if (!wrapper) return;
+    // Если контейнер для доски не найден на странице, ничего не делаем
+    if (!wrapper) {
+        console.error("Контейнер #game-board-wrapper не найден!");
+        return;
+    }
+
+    // Получаем необходимые данные из gameState для удобства
+    const { board, players, gamePhase, currentPlayer } = gameState;
+    const myPlayerId = localStorage.getItem('userId');
+    const isMyTurn = currentPlayer && currentPlayer.id === myPlayerId;
+
+    if (!board) {
+        // Если данных о доске нет, запускаем анимацию
+        LoadingAnimator.start(wrapper);
+        return; // Выходим
+    }
+    LoadingAnimator.stop();
 
     // Полностью очищаем контейнер перед новой отрисовкой
     wrapper.innerHTML = '';
 
-    if (!boardData) {
-        wrapper.innerHTML = '<p>Ожидание данных доски...</p>';
-        return;
-    }
-
-    // Создаем элемент для самой сетки доски
+    // Создаем основной элемент доски
     const boardElement = document.createElement('div');
-    boardElement.className = 'game-board'; // Этот класс задает display: grid
-    boardElement.style.setProperty('--cell-size-css', `${cellSize}px`);
-    boardElement.style.gridTemplateColumns = `repeat(${boardData.size}, var(--cell-size-css))`;
-    boardElement.style.gridTemplateRows = `repeat(${boardData.size}, var(--cell-size-css))`;
+    boardElement.className = 'game-board';
 
-    // 1. Отрисовка сетки и тайлов
-    boardData.grid.forEach(row => {
+    // Устанавливаем CSS переменные, которые используют стили для расчета размеров
+    boardElement.style.setProperty('--board-size', board.size);
+    boardElement.style.setProperty('--cell-size', `${CELL_SIZE}px`);
+
+    // --- ОСНОВНАЯ ЛОГИКА СБОРКИ ---
+
+    // 1. Рендерим сетку ячеек, вызывая для каждой createCellElement
+    board.grid.forEach(row => {
         row.forEach(cellData => {
-            const cellDiv = document.createElement('div');
-            cellDiv.className = 'cell';
-            cellDiv.dataset.x = cellData.x; // Сохраняем координаты
-            cellDiv.dataset.y = cellData.y;
-
-            if (cellData.stationary) {
-                cellDiv.classList.add('stationary');
-            }
-
-            if (cellData.tile) {
-                cellDiv.appendChild(createTileElement(cellData.tile));
-            }
-
-            if (cellData.marker && cellData.stationary) {
-                cellDiv.appendChild(createMarkerElement(cellData.marker));
-            }
-
+            // createCellElement сама создаст и тайл, и маркер внутри, если они есть
+            const cellDiv = createCellElement(cellData, gameState, isMyTurn);
             boardElement.appendChild(cellDiv);
         });
     });
 
-    // 2. Отрисовка фишек игроков
-    if (playersData) {
-        playersData.forEach(player => {
-            const playerDiv = document.createElement('div');
-            playerDiv.className = 'player-piece';
-            playerDiv.style.backgroundColor = getAvatarColor(player.avatarType);
-            playerDiv.textContent = player.name.substring(0, 1).toUpperCase();
+    // 2. Рендерим фишки игроков поверх сетки
+    players.forEach(player => {
+        boardElement.appendChild(createPlayerPieceElement(player));
+    });
 
-            playerDiv.style.left = `${player.currentX * cellSize + (cellSize * 0.1)}px`;
-            playerDiv.style.top = `${player.currentY * cellSize + (cellSize * 0.1)}px`;
+    // 3. Рендерим кнопки сдвига, но только если сейчас наш ход и правильная фаза
+    if (isMyTurn && gamePhase === 'PLAYER_SHIFT') {
 
-            boardElement.appendChild(playerDiv); // Добавляем фишку внутрь доски
-        });
+        boardElement.appendChild(createShiftButtons(board.size, gameState.roomId));
+        console.log("Сейчас фаза сдвига, нужно отрисовать кнопки."); // Временный лог
     }
 
-    // 3. Отрисовка лишнего тайла в левой панели
-    const extraTileContainer = document.getElementById('extra-tile-display');
-    if (extraTileContainer) {
-        extraTileContainer.innerHTML = ''; // Очищаем
-        if (boardData.extraTile) {
-            extraTileContainer.appendChild(createTileElement(boardData.extraTile));
-        }
-    }
-
-    // Добавляем готовую доску в обертку
+    // 4. Добавляем всю собранную доску на страницу
     wrapper.appendChild(boardElement);
-
-    // 4. Отрисовка кнопок сдвига
-    const shiftButtonsContainer = createShiftButtons(boardData.size);
-    wrapper.appendChild(shiftButtonsContainer);
 }
 
-
-// --- Вспомогательные функции для создания элементов ---
-
-// Создает HTML-элемент для одного тайла
-function createTileElement(tileData) {
-    const tileDiv = document.createElement('div');
-    tileDiv.className = 'tile';
-    tileDiv.classList.add(`tile-${tileData.type.toLowerCase()}`);
-    tileDiv.classList.add(`rot-${tileData.orientation}`);
-
-    if (tileData.marker) {
-        tileDiv.appendChild(createMarkerElement(tileData.marker));
+// Вспомогательная функция для создания ячейки. Мы ее уже писали, но я привожу ее здесь для полноты картины.
+function createCellElement(cellData, gameState, isMyTurn) {
+    const cellDiv = document.createElement('div');
+    cellDiv.className = 'cell';
+    cellDiv.dataset.x = cellData.x;
+    cellDiv.dataset.y = cellData.y;
+    if (cellData.stationary) {
+        cellDiv.classList.add('stationary');
     }
-    return tileDiv;
-}
 
-// Создает HTML-элемент для маркера
-function createMarkerElement(markerData) {
-    const markerDiv = document.createElement('div');
-    markerDiv.className = 'marker';
-    markerDiv.textContent = markerData.id;
-    return markerDiv;
-}
+    if (cellData.tile) {
+        cellDiv.appendChild(createTileElement(cellData.tile));
+    }
 
-// Возвращает цвет для аватара в зависимости от его типа
-function getAvatarColor(avatarType) {
-    const colors = {
-        'KNIGHT': '#c0c0c0', // Silver
-        'MAGE': '#800080',   // Purple
-        'ARCHER': '#008000', // Green
-        'DWARF': '#ff4500'   // OrangeRed
-    };
-    return colors[avatarType] || '#6c757d'; // Дефолтный серый
+    if (cellData.stationary && cellData.marker) {
+        cellDiv.appendChild(createMarkerElement(cellData.marker));
+    }
+
+    if (isMyTurn && gameState.gamePhase === 'PLAYER_MOVE') {
+        cellDiv.classList.add('clickable');
+        cellDiv.onclick = () => {
+            sendWebSocketMessage({
+                type: 'PLAYER_ACTION_MOVE',
+                roomId: gameState.roomId,
+                targetX: cellData.x,
+                targetY: cellData.y
+            });
+        };
+    }
+
+    return cellDiv;
 }
 
 // Создает контейнер с кнопками для сдвига рядов/колонок
-function createShiftButtons(boardSize) {
-    const container = document.createElement('div');
-    container.className = 'shift-buttons-container';
 
-    for (let i = 1; i < boardSize; i += 2) {
-        // Верхние
-        const topBtn = document.createElement('button');
-        topBtn.className = 'shift-btn top';
-        topBtn.style.left = `${i * cellSize + cellSize / 2}px`;
-        topBtn.dataset.index = i;
-        topBtn.dataset.direction = 'DOWN';
-        container.appendChild(topBtn);
+function createShiftButtons(boardSize, roomId) {
+        const container = document.createElement('div');
+        container.className = 'shift-buttons-container';
 
-        // Нижние
-        const bottomBtn = document.createElement('button');
-        bottomBtn.className = 'shift-btn bottom';
-        bottomBtn.style.left = `${i * cellSize + cellSize / 2}px`;
-        bottomBtn.dataset.index = i;
-        bottomBtn.dataset.direction = 'UP';
-        container.appendChild(bottomBtn);
+        // Вспомогательная функция, чтобы не дублировать код создания одной кнопки
+        const createButton = (positionClass, index, direction, top, left) => {
+            const btn = document.createElement('button');
+            btn.className = `shift-btn ${positionClass}`;
 
-        // Левые
-        const leftBtn = document.createElement('button');
-        leftBtn.className = 'shift-btn left';
-        leftBtn.style.top = `${i * cellSize + cellSize / 2}px`;
-        leftBtn.dataset.index = i;
-        leftBtn.dataset.direction = 'RIGHT';
-        container.appendChild(leftBtn);
+            // Устанавливаем позицию через inline-стили
+            if (top !== null) btn.style.top = top;
+            if (left !== null) btn.style.left = left;
 
-        // Правые
-        const rightBtn = document.createElement('button');
-        rightBtn.className = 'shift-btn right';
-        rightBtn.style.top = `${i * cellSize + cellSize / 2}px`;
-        rightBtn.dataset.index = i;
-        rightBtn.dataset.direction = 'LEFT';
-        container.appendChild(rightBtn);
-    }
-    return container;
+            // Сохраняем данные для отправки в data-атрибутах
+            btn.dataset.index = index;
+            btn.dataset.direction = direction;
+
+            // --- ГЛАВНОЕ ИЗМЕНЕНИЕ: ДОБАВЛЯЕМ ОБРАБОТЧИК КЛИКА ---
+            btn.onclick = (e) => {
+                // Предотвращаем клик по элементам под кнопкой
+                e.stopPropagation();
+
+                // Отправляем сообщение на сервер с данными из кнопки
+                sendWebSocketMessage({
+                    type: 'PLAYER_ACTION_SHIFT',
+                    roomId: roomId,
+                    shiftIndex: parseInt(btn.dataset.index),
+                    shiftDirection: btn.dataset.direction
+                });
+            };
+
+            return btn;
+        };
+
+        // Проходим по всем подвижным рядам и колонкам (с нечетными индексами)
+        for (let i = 1; i < boardSize; i += 2) {
+            const position = `${i * CELL_SIZE + CELL_SIZE / 2}px`;
+
+            // Верхние кнопки (сдвиг ВНИЗ)
+            container.appendChild(createButton('top', i, 'SOUTH', '0px', position));
+
+            // Нижние кнопки (сдвиг ВВЕРХ)
+            container.appendChild(createButton('bottom', i, 'NORTH', null, position));
+
+            // Левые кнопки (сдвиг ВПРАВО)
+            container.appendChild(createButton('left', i, 'EAST', position, '0px'));
+
+            // Правые кнопки (сдвиг ВЛЕВО)
+            container.appendChild(createButton('right', i, 'WEST', position, null));
+        }
+
+        return container;
 }
+
 
 // ================= ТОЧКА ВХОДА ПРИЛОЖЕНИЯ =================
 document.addEventListener('DOMContentLoaded', () => {
@@ -618,3 +640,202 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeWebSocket();
     }
 });
+// =========================================================================
+//           ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ОТРИСОВКИ ДОСКИ
+// =========================================================================
+
+/**
+ * Создает DOM-элемент для ОДНОГО тайла.
+ * Эта функция будет выбирать случайный скин для тайла.
+ * @param {object} tileData - Данные тайла от сервера (type, orientation, marker).
+ * @returns {HTMLElement} - Готовый div-элемент для тайла.
+ */
+function createTileElement(tileData) {
+    const tileDiv = document.createElement('div');
+    tileDiv.className = 'tile';
+
+    // Устанавливаем класс для поворота
+    tileDiv.classList.add(`rot-${tileData.orientation}`);
+
+    // --- Логика выбора скина ---
+    const theme = TILE_THEMES[currentTheme];
+    const tileType = tileData.type.toLowerCase();
+    const availableVariants = theme.variants[tileType] || [tileType]; // Защита, если вариантов нет
+    const randomIndex = Math.floor(Math.random() * availableVariants.length);
+    const randomVariantFileName = availableVariants[randomIndex];
+    const imagePath = `${theme.path}${randomVariantFileName}.${theme.extension}`;
+
+    // Устанавливаем картинку как фон
+    tileDiv.style.backgroundImage = `url('${imagePath}')`;
+
+    // Если на тайле есть маркер, добавляем его поверх
+    if (tileData.marker) {
+        tileDiv.appendChild(createMarkerElement(tileData.marker));
+    }
+
+    return tileDiv;
+}
+
+/**
+ * Создает DOM-элемент для ОДНОГО маркера (сокровища).
+ * @param {object} markerData - Данные маркера от сервера (id).
+ * @returns {HTMLElement} - Готовый div-элемент для маркера.
+ */
+function createMarkerElement(markerData) {
+    const markerDiv = document.createElement('div');
+    markerDiv.className = 'marker';
+    markerDiv.textContent = markerData.id;
+    return markerDiv;
+}
+
+/**
+ * Создает DOM-элемент для ОДНОЙ фишки игрока.
+ * @param {object} playerData - Данные игрока от сервера.
+ * @returns {HTMLElement} - Готовый div-элемент для фишки.
+ */
+function createPlayerPieceElement(playerData) {
+    const playerDiv = document.createElement('div');
+    playerDiv.className = 'player-piece';
+
+    // Устанавливаем цвет и первую букву имени
+    playerDiv.style.backgroundColor = getAvatarColor(playerData.avatarType);
+    playerDiv.textContent = playerData.name.substring(0, 1).toUpperCase();
+
+    // Позиционируем фишку на доске с небольшим смещением для красоты
+    const offset = CELL_SIZE * 0.125; // Смещение, чтобы фишка была по центру
+    playerDiv.style.left = `${playerData.currentX * CELL_SIZE + offset}px`;
+    playerDiv.style.top = `${playerData.currentY * CELL_SIZE + offset}px`;
+
+    // Если игрок отключен, добавляем специальный класс
+    if (playerData.status === 'DISCONNECTED') {
+        playerDiv.classList.add('disconnected-piece');
+    }
+
+    return playerDiv;
+}
+
+/**
+ * Возвращает цвет для аватара в зависимости от его типа.
+ * @param {string} avatarType - Тип аватара от сервера.
+ * @returns {string} - CSS-код цвета.
+ */
+function getAvatarColor(avatarType) {
+    const colors = {
+        'KNIGHT': '#8a94a1',
+        'MAGE': '#7a5b9e',
+        'ARCHER': '#5a8d5c',
+        'DWARF': '#c56b3e'
+    }
+    return colors[avatarType] || '#6c757d'; // Дефолтный серый
+}
+// =========================================================================
+//            МОДУЛЬ АНИМАЦИИ ЭКРАНА ОЖИДАНИЯ
+// =========================================================================
+
+const LoadingAnimator = {
+    intervalId: null,      // ID для setInterval, чтобы его можно было остановить
+    flipTimeoutId: null,   // ID для setTimeout для "переворота"
+    container: null,       // Ссылка на контейнер, в котором идет анимация
+
+    /**
+     * Запускает анимацию внутри указанного DOM-элемента.
+     * @param {HTMLElement} targetContainer - div, в который нужно встроить анимацию.
+     */
+    start(targetContainer) {
+        if (this.intervalId) {
+            // Если анимация уже запущена, ничего не делаем
+            return;
+        }
+
+        console.log("Запуск анимации ожидания...");
+        this.container = targetContainer;
+
+        // 1. Создаем и вставляем пустую доску
+        this.container.innerHTML = '<div class="game-board loading-board"></div>';
+        const boardElement = this.container.querySelector('.loading-board');
+
+        // Устанавливаем CSS переменные (размер доски всегда 7x7 для анимации)
+        boardElement.style.setProperty('--board-size', 7);
+        boardElement.style.setProperty('--cell-size', `60px`); // Можно использовать константу CELL_SIZE
+
+        // 2. Запускаем интервал, который будет "ронять" тайлы
+        this.intervalId = setInterval(() => {
+            this.dropRandomTile(boardElement);
+        }, 200); // Каждые 200мс появляется новый тайл
+
+        // 3. Запускаем первый "переворот" доски
+        this.scheduleFlip(boardElement);
+    },
+
+    /**
+     * Полностью останавливает анимацию и очищает контейнер.
+     */
+    stop() {
+        if (!this.intervalId) return; // Если не была запущена, ничего не делаем
+
+        console.log("Остановка анимации ожидания.");
+        clearInterval(this.intervalId);
+        clearTimeout(this.flipTimeoutId);
+
+        this.intervalId = null;
+        this.flipTimeoutId = null;
+
+        if (this.container) {
+            this.container.innerHTML = ''; // Очищаем контейнер
+        }
+    },
+
+    /**
+     * Вспомогательная функция: создает и "роняет" случайный тайл в случайную ячейку.
+     * @param {HTMLElement} board - Элемент доски, куда добавлять тайлы.
+     */
+    dropRandomTile(board) {
+        // Создаем сам тайл
+        const tile = document.createElement('div');
+        tile.className = 'tile-loading'; // Специальный класс для анимации появления
+
+        // Выбираем случайный тип тайла
+        const types = ['straight', 'corner', 't_shaped'];
+        const randomType = types[Math.floor(Math.random() * types.length)];
+
+        // Выбираем случайный скин (можно использовать тот же `createTileElement` или упрощенную версию)
+        tile.style.backgroundImage = `url('/images/tiles/classic/${randomType}.png')`; // Упрощенно
+        tile.style.transform = `rotate(${90 * Math.floor(Math.random() * 4)}deg)`;
+
+        // Выбираем случайную ячейку
+        const x = Math.floor(Math.random() * 7) + 1;
+        const y = Math.floor(Math.random() * 7) + 1;
+        tile.style.gridColumn = x;
+        tile.style.gridRow = y;
+
+        board.appendChild(tile);
+
+        // Через некоторое время удаляем тайл, чтобы доска не переполнялась
+        setTimeout(() => tile.remove(), 2000);
+    },
+
+    /**
+     * Запускает анимацию "переворота" и планирует следующую.
+     * @param {HTMLElement} board - Элемент доски для анимации.
+     */
+    scheduleFlip(board) {
+        this.flipTimeoutId = setTimeout(() => {
+            board.classList.add('is-flipping');
+
+            // Во время "переворота" (когда доска невидима) очищаем все тайлы
+            setTimeout(() => {
+                board.innerHTML = '';
+            }, 800); // Должно быть чуть меньше половины времени анимации 'flip-board'
+
+            // Убираем класс анимации после ее завершения
+            board.addEventListener('animationend', () => {
+                board.classList.remove('is-flipping');
+            }, { once: true });
+
+            // Планируем следующий переворот
+            this.scheduleFlip(board);
+
+        }, 7000); // Каждые 7 секунд
+    }
+};
+

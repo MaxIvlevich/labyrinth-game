@@ -236,29 +236,38 @@ public class GameService {
         GameRoom room = roomService.getRoom(roomId);
         gameValidator.validateRoomForJoin(room);
         UUID newPlayerId = newPlayer.getId();
-        boolean alreadyInRoom = room.getPlayers().stream()
-                .anyMatch(p -> p.getId().equals(newPlayerId));
+        Optional<Player> existingPlayerOpt = room.getPlayers().stream()
+                .filter(p -> p.getId().equals(newPlayerId))
+                .findFirst();
 
-        if (alreadyInRoom) {
-            log.warn("Player {} is already in room {}. Join request denied.", newPlayerId, roomId);
-            throw new IllegalStateException("You are already in this room.");
-        }
-        int playerCount = room.getPlayers().size();
-        if (playerCount < avatars.size()) {
-            newPlayer.setAvatar(avatars.get(playerCount));
+        if (existingPlayerOpt.isPresent()) {
+            // Игрок уже в комнате! Это не ошибка, а переподключение.
+            Player existingPlayer = existingPlayerOpt.get();
+            log.info("Player {} ({}) is re-joining the room {}.",
+                    existingPlayer.getName(), newPlayerId, roomId);
+            // Убедимся, что его статус снова "CONNECTED"
+            existingPlayer.setStatus(PlayerStatus.CONNECTED);
         } else {
-            log.warn("Not enough unique avatars for player count {}. Using default.", playerCount);
-            // Можно предусмотреть дефолтный аватар
-        }
+            // Если игрока нет, это новый участник. Добавляем его.
+            log.info("New player {} ({}) is joining the room {}.",
+                    newPlayer.getName(), newPlayerId, roomId);
+            int playerCount = room.getPlayers().size();
+            if (playerCount < avatars.size()) {
+                newPlayer.setAvatar(avatars.get(playerCount));
+            } else {
+                log.warn("Not enough unique avatars for player count {}. Using default.", playerCount);
+                // Можно предусмотреть дефолтный аватар
+            }
 
-        room.addPlayer(newPlayer);
-        log.info("Player {} (ID: {}) added to room {} by GameService. Players in room: {}",
-                newPlayer.getName(), newPlayer.getId(), roomId, room.getPlayers().size());
+            room.addPlayer(newPlayer);
+            log.info("Player {} (ID: {}) added to room {} by GameService. Players in room: {}",
+                    newPlayer.getName(), newPlayer.getId(), roomId, room.getPlayers().size());
 
-        // 5. Если комната заполнилась, начинаем игру
-        if (room.isFull() && room.getGamePhase() == GamePhase.WAITING_FOR_PLAYERS) {
-            log.info("Room {} is now full with {} players. Starting game...", roomId, room.getPlayers().size());
-            this.startGame(roomId);
+            // 5. Если комната заполнилась, начинаем игру
+            if (room.isFull() && room.getGamePhase() == GamePhase.WAITING_FOR_PLAYERS) {
+                log.info("Room {} is now full with {} players. Starting game...", roomId, room.getPlayers().size());
+                this.startGame(roomId);
+            }
         }
         return room;
     }

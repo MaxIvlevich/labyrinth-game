@@ -99,7 +99,6 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler {
                 log.info("Player {} successfully processed to join room {}", userName, roomIdToJoin);
 
             } catch (Exception e) {
-                // GameService выбросит исключение, если что-то пошло не так (комната не найдена, полная и т.д.)
                 log.warn("Failed to process JOIN_ROOM for player {} into room {}: {}", userId, roomIdToJoin, e.getMessage());
                 // Отправляем понятное сообщение об ошибке на фронт
                 sessionManager.sendErrorMessageToSession(session, e.getMessage(),objectMapper);

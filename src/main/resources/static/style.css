@@ -469,3 +469,218 @@ h1 {
     text-decoration: none; /* Убираем подчеркивание */
     color: inherit; /* Наследуем цвет текста от родителя */
 }
+/* =================================== */
+/*          СТИЛИ ИГРОВОГО ПОЛЯ        */
+/* =================================== */
+
+/* 1. Обертка для всей доски и ее окружения (кнопок) */
+.game-board-wrapper {
+    position: relative; /* Необходимо для позиционирования кнопок сдвига */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* Это позволит доске красиво сжиматься на маленьких экранах */
+    max-width: 100%;
+}
+
+/* 2. Сама доска (сетка) */
+.game-board {
+    display: grid;
+    /* Эти переменные будут установлены из JS, что сделает размер доски динамическим */
+    grid-template-columns: repeat(var(--board-size, 7), var(--cell-size, 50px));
+    grid-template-rows: repeat(var(--board-size, 7), var(--cell-size, 50px));
+
+    border: 3px solid #6d4c41; /* Рамка "под дерево" */
+    background-color: #a1887f; /* Фон "стола" */
+    box-shadow: inset 0 0 15px rgba(0,0,0,0.4); /* Внутренняя тень для объема */
+    position: relative; /* Необходимо для позиционирования фишек */
+}
+
+/* 3. Ячейка (клетка) доски */
+.cell {
+    width: var(--cell-size);
+    height: var(--cell-size);
+    background-color: #d7ccc8; /* Цвет "светлого камня" */
+    border: 1px solid #bcaaa4; /* Линии сетки */
+    position: relative; /* Для позиционирования маркеров внутри */
+    display: flex; /* Чтобы легко центрировать маркеры */
+    justify-content: center;
+    align-items: center;
+}
+
+/* 4. Стиль для неподвижных ячеек */
+.cell.stationary {
+    background-color: #bcaaa4; /* Цвет "темного камня" */
+}
+
+/* 5. Стиль для тайла (общее) */
+/* ВАЖНО: Мы убираем отсюда background-image, так как он будет задаваться из JS */
+.tile {
+    width: 100%;
+    height: 100%;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 98%; /* Картинка чуть меньше ячейки, чтобы были видны границы */
+    transition: transform 0.3s ease; /* Плавный поворот */
+}
+
+/* 6. Стили для поворота тайлов */
+/* Эти классы JS будет просто добавлять к элементу */
+.rot-0 { transform: rotate(0deg); }
+.rot-1 { transform: rotate(90deg); }
+.rot-2 { transform: rotate(180deg); }
+.rot-3 { transform: rotate(270deg); }
+
+/* 7. Стиль для маркера (сокровища) */
+.marker {
+    width: 45%;
+    height: 45%;
+    background-color: rgba(253, 236, 166, 0.9); /* Цвет "золотой монеты" */
+    border: 2px solid #c79100; /* Золотая рамка */
+    border-radius: 50%;
+    color: #3e2723; /* Темно-коричневый текст */
+    font-size: calc(var(--cell-size) * 0.3);
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: absolute; /* Поверх тайла */
+    z-index: 5;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+/* 8. Стиль для фишки игрока */
+.player-piece {
+    position: absolute; /* Позиционируется относительно доски */
+    width: calc(var(--cell-size) * 0.75);
+    height: calc(var(--cell-size) * 0.75);
+    border-radius: 50%;
+    border: 3px solid white; /* Белая окантовка для контраста */
+    box-shadow: 0 3px 6px rgba(0,0,0,0.6);
+    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55); /* Плавное перемещение с эффектом "прыжка" */
+    z-index: 10; /* Фишки всегда поверх всего */
+
+    /* Стили для текста (первой буквы имени) */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: calc(var(--cell-size) * 0.45);
+    font-weight: bold;
+    color: white;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+}
+
+/* 9. Стиль для отключенной фишки */
+.player-piece.disconnected-piece {
+    opacity: 0.5;
+    filter: grayscale(1); /* Делаем фишку серой */
+    box-shadow: none;
+}
+/* =================================== */
+/*        СТИЛИ КНОПОК СДВИГА          */
+/* =================================== */
+
+/* 1. Контейнер для всех кнопок. Он растягивается вокруг доски. */
+.shift-buttons-container {
+    position: absolute;
+    /* Позиционируем его так, чтобы он начинался за пределами доски */
+    top: calc(-1 * var(--cell-size) / 2);
+    left: calc(-1 * var(--cell-size) / 2);
+    /* Делаем его больше доски на одну ячейку в каждом измерении */
+    width: calc(var(--board-size) * var(--cell-size) + var(--cell-size));
+    height: calc(var(--board-size) * var(--cell-size) + var(--cell-size));
+    /* Контейнер сам по себе не ловит клики, чтобы не мешать другим элементам */
+    pointer-events: none;
+}
+
+/* 2. Общий стиль для одной кнопки */
+.shift-btn {
+    position: absolute;
+    width: calc(var(--cell-size) * 0.6); /* Размер кнопки чуть больше половины ячейки */
+    height: calc(var(--cell-size) * 0.6);
+    background-color: #ffca28; /* Ярко-желтый */
+    border: 2px solid #ff8f00; /* Оранжевая рамка */
+    border-radius: 50%;
+    cursor: pointer;
+    /* Кнопки, в отличие от контейнера, должны ловить клики */
+    pointer-events: all;
+    transition: background-color 0.2s, transform 0.2s;
+
+    /* Стили для иконки-стрелки */
+    background-image: url('/images/arrow.svg');
+    background-size: 60%;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.shift-btn:hover {
+    background-color: #ffde7a; /* Более светлый желтый при наведении */
+    transform: scale(1.1); /* Немного увеличиваем кнопку */
+}
+
+/* 3. Позиционирование и поворот стрелок */
+/*
+   transform-origin: center; - важно, чтобы поворот был вокруг центра кнопки.
+   transform: translate(-50%, -50%) - центрирует кнопку относительно точки, заданной top/left.
+*/
+
+.shift-btn.top {
+    top: 0;
+    transform-origin: center;
+    transform: translate(-50%, -50%) rotate(90deg); /* Стрелка вниз */
+}
+.shift-btn.bottom {
+    bottom: 0;
+    transform-origin: center;
+    transform: translate(-50%, 50%) rotate(-90deg); /* Стрелка вверх */
+}
+.shift-btn.left {
+    left: 0;
+    transform-origin: center;
+    transform: translate(-50%, -50%) rotate(0deg); /* Стрелка вправо */
+}
+.shift-btn.right {
+    right: 0;
+    transform-origin: center;
+    transform: translate(50%, -50%) rotate(180deg); /* Стрелка влево */
+}
+.loading-board {
+    /* Чтобы тайлы позиционировались внутри сетки */
+    display: grid;
+    grid-template-columns: repeat(var(--board-size), var(--cell-size));
+    grid-template-rows: repeat(var(--board-size), var(--cell-size));
+}
+
+.tile-loading {
+    /* Этот класс нужен, чтобы не конфликтовать с .tile */
+    width: var(--cell-size);
+    height: var(--cell-size);
+    background-size: 95%;
+    background-position: center;
+    background-repeat: no-repeat;
+
+    /* Анимация появления */
+    animation: fall-in 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+
+@keyframes fall-in {
+    from {
+        transform: translateY(-30px) scale(0.7);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+/* Анимация переворота доски */
+.game-board.is-flipping {
+    animation: flip-board 1.8s ease-in-out;
+}
+
+@keyframes flip-board {
+    0% { transform: perspective(1200px) rotateY(0deg); }
+    50% { transform: perspective(1200px) rotateY(90deg); }
+    100% { transform: perspective(1200px) rotateY(0deg); }
+}
