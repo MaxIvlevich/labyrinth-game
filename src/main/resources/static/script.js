@@ -283,10 +283,6 @@ function handleServerMessage(message) {
 
     switch (msg.type) {
         case 'ROOM_LIST_UPDATE':
-            if (globalState.view !== 'lobby') {
-                console.warn("Получено обновление списка комнат, но мы не в лобби. Игнорируем.");
-                break; // Игнорируем сообщение
-            }
             globalState.rooms = msg.rooms;
             globalState.view = 'lobby';
             localStorage.removeItem('currentRoomId');

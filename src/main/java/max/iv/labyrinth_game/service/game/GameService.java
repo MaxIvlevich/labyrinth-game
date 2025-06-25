@@ -371,28 +371,11 @@ public class GameService {
 
     private void handleTurnAfterDisconnect(GameRoom room, Player disconnectedPlayer) {
 
-        Player currentPlayerBeforeDisconnect = room.getCurrentPlayer();
-
-        // Если текущего игрока не было (фаза WAITING), или отключился не он, ничего не делаем с ходом.
-        if (currentPlayerBeforeDisconnect == null || !currentPlayerBeforeDisconnect.equals(disconnectedPlayer)) {
-            log.info("Turn state not changed. Current player was not the one who disconnected, or game hasn't started.");
-            return;
-        }
-
-        // Если мы дошли сюда, значит, отключился текущий игрок в активной фазе.
-        log.info("Current player {} disconnected. Passing turn to the next active player.", disconnectedPlayer.getName());
-
-        int startIndex = room.getCurrentPlayerIndex();
-        for (int i = 1; i <= room.getPlayers().size(); i++) {
-            int nextIndex = (startIndex + i) % room.getPlayers().size();
-            Player nextPlayer = room.getPlayers().get(nextIndex);
-
-            if (nextPlayer.getStatus() == PlayerStatus.CONNECTED) {
-                room.setCurrentPlayerIndex(nextIndex);
-                room.setGamePhase(GamePhase.PLAYER_SHIFT);
-                log.info("Turn passed to player {}.", nextPlayer.getName());
-                return;
-            }
+        if (room.getCurrentPlayer() != null && room.getCurrentPlayer().equals(disconnectedPlayer)) {
+            log.info("Current player {} has disconnected. The turn will remain with them until they reconnect and make a move.",
+                    disconnectedPlayer.getName());
+        } else {
+            log.info("Player {} (not a current player) has disconnected.", disconnectedPlayer.getName());
         }
     }
 
@@ -400,21 +383,63 @@ public class GameService {
         GameRoom room = roomService.getRoom(roomId);
         if (room == null) return false;
 
-        boolean playerRemoved = room.getPlayers().removeIf(player -> player.getId().equals(playerId));
+        Optional<Player> playerToRemoveOpt = room.getPlayers().stream()
+                .filter(p -> p.getId().equals(playerId))
+                .findFirst();
 
-        if (playerRemoved) {
-            log.info("Player {} was successfully removed from the player list of room {}.", playerId, roomId);
-
-            // Проверяем, не стала ли комната пустой
-            if (room.getPlayers().isEmpty()) {
-                roomService.removeRoom(roomId); // RoomService сам себя чистит
-                return true; // Сообщаем, что комната была удалена
-            }
-        } else {
-            log.warn("Attempted to remove player {} from room {}, but player was not found.", playerId, roomId);
+        if (playerToRemoveOpt.isEmpty()) {
+            log.warn("Attempted to remove player {} who is not in room {}.", playerId, roomId);
+            return false;
         }
+        Player removedPlayer = playerToRemoveOpt.get();
+        boolean wasCurrentPlayer = removedPlayer.equals(room.getCurrentPlayer());
+        room.getPlayers().remove(removedPlayer);
+        log.info("Player {} (name: {}) has been permanently removed from room {}.",
+                playerId, removedPlayer.getName(), roomId);
+        if (room.getPlayers().size() < 2 && room.getGamePhase().isActivePlayPhase()) {
+            log.info("Less than 2 players left in active game {}. Game is over.", roomId);
+            room.setGamePhase(GamePhase.GAME_OVER);
+            // Если остался один игрок - он победитель.
+            if (room.getPlayers().size() == 1) {
+                room.setWinner(room.getPlayers().get(0));
+            } else {
+                // Если никого не осталось (было 2, 1 вышел, 1 отключен), победителя нет.
+                room.setWinner(null);
+            }
+        }
+        // ПРАВИЛО 2: Если игрок вышел из игры, которая еще не началась
+        else if (room.getGamePhase() == GamePhase.WAITING_FOR_PLAYERS) {
+            log.info("Player left a room in WAITING phase. Room state remains.");
+        }
+        // ПРАВИЛО 3: Если ушел текущий игрок из активной игры, где >2 участников
+        else if (wasCurrentPlayer && room.getGamePhase().isActivePlayPhase()) {
+            room.setCurrentPlayerIndex(0);
+            room.setGamePhase(GamePhase.PLAYER_SHIFT);
+            log.info("Current player left. Turn passed to {}.", room.getCurrentPlayer().getName());
+        }
+        // ПРАВИЛО 4: Если комната стала пустой, она удаляется
+        if (room.getPlayers().isEmpty()) {
+            log.info("Room {} is now empty and will be removed.", roomId);
+            roomService.removeRoom(roomId); // RoomService удаляет комнату из своей мапы
+            return true; // Сообщаем, что комната была удалена
+        }
+
         return false;
     }
+
+    public void recalculateTurnAfterPlayerRemoval(GameRoom room, UUID playerId) {
+
+        if (room.getPlayers().isEmpty()) {
+            // Если игроков не осталось, игра закончится в checkAndHandleGameEndConditions
+            return;
+        }
+        // Находим первого игрока в обновленном списке и делаем его текущим.
+        Player nextPlayer = room.getPlayers().get(0);
+        room.setCurrentPlayerIndex(0);
+        room.setGamePhase(GamePhase.PLAYER_SHIFT);
+        log.info("Player was removed. Turn is reset and passed to {}.", nextPlayer.getName());
+    }
+
     private record Point(int x, int y) {
     }
 }

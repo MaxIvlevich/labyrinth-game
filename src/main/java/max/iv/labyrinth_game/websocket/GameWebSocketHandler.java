@@ -3,7 +3,6 @@ package max.iv.labyrinth_game.websocket;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.dto.auth.JSONMessageToFront;
-import max.iv.labyrinth_game.service.game.LobbyService;
 import max.iv.labyrinth_game.websocket.dto.BaseMessage;
 import max.iv.labyrinth_game.websocket.dto.ErrorMessageResponse;
 import max.iv.labyrinth_game.websocket.messageHandlers.WebSocketMessageHandler;
@@ -26,16 +25,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper;
     private final SessionManager sessionManager;
 
-    private final LobbyService lobbyService;
 
     @Autowired
     public GameWebSocketHandler(List<WebSocketMessageHandler> messageHandlers,
                                 ObjectMapper objectMapper,
-                                SessionManager sessionManager, LobbyService lobbyService) {
+                                SessionManager sessionManager) {
         this.messageHandlers = messageHandlers;
         this.objectMapper = objectMapper;
         this.sessionManager = sessionManager;
-        this.lobbyService = lobbyService;
         log.info("GameWebSocketHandler initialized with {} message handlers.", messageHandlers.size());
     }
 
@@ -49,7 +46,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             if (userId != null) {
                 sessionManager.closeExistingSessionForPlayer(userId, session.getId());
                 sessionManager.mapPlayerToSession(userId, session.getId());
-                lobbyService.addSessionToLobby(session, userId);
+                // lobbyService.addSessionToLobby(session, userId);
             }else {
                 log.warn("Session {} connected, but user details not found...", session.getId());
             }

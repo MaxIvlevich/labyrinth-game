@@ -3,7 +3,9 @@ package max.iv.labyrinth_game.websocket.messageHandlers;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.exceptions.ErrorType;
+import max.iv.labyrinth_game.model.game.GameRoom;
 import max.iv.labyrinth_game.service.game.GameService;
+import max.iv.labyrinth_game.service.game.RoomService;
 import max.iv.labyrinth_game.websocket.SessionManager;
 import max.iv.labyrinth_game.websocket.dto.BaseMessage;
 import max.iv.labyrinth_game.websocket.dto.GameMessageType;
@@ -44,19 +46,11 @@ public class LeaveRoomMessageHandler implements WebSocketMessageHandler {
 
         try {
             boolean roomWasRemoved = gameService.removePlayerFromRoom(playerId, roomId);
-            eventPublisher.publishEvent(new RoomStateNeedsBroadcastEvent(this, roomId));
-
             sessionManager.returnPlayerToLobby(session.getId());
-            eventPublisher.publishEvent(new PlayerReturnedToLobbyEvent(this, session, playerId));
-
-            // и нужно обновить их состояние.
+            eventPublisher.publishEvent(new LobbyRoomListNeedsUpdateEvent(this));
             if (!roomWasRemoved) {
                 eventPublisher.publishEvent(new RoomStateNeedsBroadcastEvent(this, roomId));
             }
-
-            // В любом случае (была комната удалена или просто изменилось кол-во игроков),
-            // лобби нужно обновить.
-            eventPublisher.publishEvent(new LobbyRoomListNeedsUpdateEvent(this));
 
         } catch (Exception e) {
             log.error("Error processing LEAVE_ROOM for player {} in room {}: {}", playerId, roomId, e.getMessage(), e);

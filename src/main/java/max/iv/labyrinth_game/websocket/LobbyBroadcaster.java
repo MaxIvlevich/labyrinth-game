@@ -43,54 +43,15 @@ public class LobbyBroadcaster {
             log.error("Error broadcasting room list in response to event: {}", e.getMessage(), e);
         }
     }
-
-    public void addSession(String sessionId, UUID userId) {
-        if (sessionId == null || sessionId.isBlank()) {
-            log.warn("Attempted to add a session to lobby with null or blank sessionId.");
-            return;
-
-        }
-        lobbySessions.put(sessionId, userId);
-        if (userId != null) {
-            log.info("Session {} (user {}) added to lobby tracking.", sessionId, userId);
-        } else {
-            log.info("Session {} (user not yet identified) added to lobby tracking.", sessionId);
-        }
-
-
-    }
-
-    public void removeSession(String sessionId) {
-        if (sessionId == null) return;
-        UUID removed = lobbySessions.remove(sessionId);
-        if (removed != null) {
-            log.info("Session {} (user {}) removed from lobby tracking.", sessionId, removed);
-        } else {
-            // Проверяем, была ли сессия без userId вообще в мапе
-            if (lobbySessions.containsKey(sessionId)) {
-                lobbySessions.remove(sessionId);
-                log.info("Session {} (no specific user ID) removed from lobby tracking.", sessionId);
-            } else {
-                log.debug("Session {} was not in lobby tracking to be removed.", sessionId);
-            }
-        }
-    }
-
     public void broadcastRoomList() {
         List<RoomInfoDTO> roomList = roomService.getAllRoomsInfo(0, 8);
         PageInfo pageDetails = new PageInfo(0, 8, 1, roomList.size());
         RoomListUpdateResponse payload = new RoomListUpdateResponse(roomList, pageDetails);
+        List<WebSocketSession> lobbySessions = sessionManager.getLobbySessions();
+        log.info("Broadcasting room list to {} sessions in lobby.", lobbySessions.size());
 
-        for (String sessionId : new HashSet<>(lobbySessions.keySet())) {
-            WebSocketSession session = sessionManager.getActiveSessionById(sessionId);
-            if (session != null && session.isOpen()) {
-                if (sessionManager.getRoomIdBySession(session) == null) {
-                    sessionManager.sendMessageToSession(session, payload, objectMapper);
-                }
-            } else {
-                lobbySessions.remove(sessionId);
-                log.warn("Removed stale or closed session {} from lobbySessions.", sessionId);
-            }
+        for (WebSocketSession session : lobbySessions) {
+            sessionManager.sendMessageToSession(session, payload, objectMapper);
         }
         log.info("Broadcasted room list to {} sessions.", lobbySessions.size());
     }
@@ -98,25 +59,7 @@ public class LobbyBroadcaster {
     public boolean containsSession(String sessionId) {
         return lobbySessions.containsKey(sessionId);
     }
-    public void removePlayerFromLobby(UUID playerId) {
-        if (playerId == null) return;
 
-        String sessionIdToRemove = null;
-
-        for (Map.Entry<String, UUID> entry : lobbySessions.entrySet()) {
-            if (entry.getValue().equals(playerId)) {
-                sessionIdToRemove = entry.getKey();
-                break;
-            }
-        }
-
-        if (sessionIdToRemove != null) {
-            lobbySessions.remove(sessionIdToRemove);
-            log.info("Removed player {} (session {}) from lobby.", playerId, sessionIdToRemove);
-        } else {
-            log.debug("Player {} not found in lobbySessions.", playerId);
-        }
-    }
     public void sendRoomListToSession(WebSocketSession session, int page, int size) {
         if (session == null || !session.isOpen()) {
             log.warn("Cannot send room list: session is null or not open.");

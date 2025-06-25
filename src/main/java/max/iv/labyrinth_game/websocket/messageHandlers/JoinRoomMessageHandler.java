@@ -71,13 +71,6 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler {
                 return;
             }
 
-           // // Проверяем, не сидит ли эта СЕССИЯ уже в какой-то комнате
-           // if (sessionManager.getRoomIdBySession(session) != null) {
-           //     sessionManager.sendErrorMessageToSession(session,
-           //             "Your current session is already in a room. Leave it first.",ErrorType.DOUBLE_SESSION_AUTHORIZED);
-           //     return;
-           // }
-
             log.info("Handling JOIN_ROOM request from player {} ({}) for room {}", userName, userId, roomIdToJoin);
 
             try {

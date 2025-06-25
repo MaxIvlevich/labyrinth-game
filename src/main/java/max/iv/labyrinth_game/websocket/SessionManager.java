@@ -13,6 +13,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -282,5 +283,12 @@ public class SessionManager{
         if (playerId == null || sessionId == null) return;
         playerIdToSessionId.put(playerId, sessionId);
         log.info("Mapped player {} to new session {}", playerId, sessionId);
+    }
+    public List<WebSocketSession> getLobbySessions() {
+
+        return allActiveSessions.values().stream()
+                // И фильтруем их: оставляем только те, у которых атрибут ROOM_ID_ATTRIBUTE_KEY равен null.
+                .filter(session -> session.getAttributes().get(ROOM_ID_ATTRIBUTE_KEY) == null)
+                .collect(Collectors.toList());
     }
 }

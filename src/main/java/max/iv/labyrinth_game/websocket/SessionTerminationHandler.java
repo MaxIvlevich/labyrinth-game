@@ -3,12 +3,11 @@ package max.iv.labyrinth_game.websocket;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.service.game.GameService;
 import max.iv.labyrinth_game.websocket.events.lobby.LobbyRoomListNeedsUpdateEvent;
-import max.iv.labyrinth_game.websocket.events.lobby.PlayerNeedsRemovalFromLobbyEvent;
 import max.iv.labyrinth_game.websocket.events.lobby.RoomStateNeedsBroadcastEvent;
-import max.iv.labyrinth_game.websocket.events.lobby.SessionNeedsRemovalFromLobbyEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
+
 import java.util.UUID;
 
 @Slf4j
@@ -27,8 +26,6 @@ public class SessionTerminationHandler {
         String sessionId = session.getId();
         if (playerId == null) {
             log.info("Handling termination for unauthenticated session {}", sessionId);
-            log.debug("Publishing SessionNeedsRemovalFromLobbyEvent for session {}", sessionId);
-            eventPublisher.publishEvent(new SessionNeedsRemovalFromLobbyEvent(this, sessionId));
             log.debug("Publishing LobbyRoomListNeedsUpdateEvent for unauthenticated session {} termination.", sessionId);
             eventPublisher.publishEvent(new LobbyRoomListNeedsUpdateEvent(this));
             return;
@@ -47,10 +44,7 @@ public class SessionTerminationHandler {
                 eventPublisher.publishEvent(new LobbyRoomListNeedsUpdateEvent(this));
             } else {
                 log.info("Player {} (session {}) was authenticated but not in a room. Initiating removal from lobby tracking.", playerId, sessionId);
-                log.debug("Publishing PlayerNeedsRemovalFromLobbyEvent for player {}", playerId);
-                // Публикуем событие
-                eventPublisher.publishEvent(new PlayerNeedsRemovalFromLobbyEvent(this, playerId));
-                log.debug("Publishing LobbyRoomListNeedsUpdateEvent due to player removal from lobby");
+
                 // Публикуем событие
                 eventPublisher.publishEvent(new LobbyRoomListNeedsUpdateEvent(this));
             }
