@@ -100,14 +100,56 @@ function render() {
         appContainer.innerHTML = '<h2>Подключение к серверу...</h2>';
     } else if (globalState.view === 'lobby') {
         appContainer.innerHTML = generateLobbyHTML(globalState.rooms);
-    } else if (globalState.view === 'game' && globalState.game) {
-        appContainer.innerHTML = generateGameHTML(globalState.game);
-        renderGameBoard(globalState.game);
-    } else {
-        // Это состояние может возникнуть, если мы в игре, но данных еще нет
-        appContainer.innerHTML = '<h2>Загрузка данных комнаты...</h2>';
+    } else if (globalState.view === 'game') {
+        if (globalState.game) {
+            // Рисуем полный макет игры
+            appContainer.innerHTML = generateGameHTML(globalState.game);
+            // И обновляем динамические части
+            updateGameView();
+
+        } else {
+            appContainer.innerHTML = '<h2>Загрузка данных комнаты...</h2>';
+
+        }
     }
 }
+function updateGameView() {
+    // Если по какой-то причине нет данных об игре, ничего не делаем.
+    if (!globalState.game) return;
+    const { gamePhase, currentPlayer, players } = globalState.game;
+    const statusEl = document.querySelector('.info-block span');
+    if (statusEl) {
+        statusEl.textContent = gamePhase;
+    }
+    const turnEl = document.querySelector('.info-block p:nth-child(2) span');
+    if (turnEl) {
+        turnEl.textContent = currentPlayer ? currentPlayer.name : 'Ожидание...';
+    }
+    const playerListContainer = document.getElementById('player-list');
+    if (playerListContainer) {
+        const playersHTML = players.map(player => {
+            const isCurrentClass = player.id === currentPlayer?.id ? 'is-current-player' : '';
+            const isDisconnectedClass = player.status === 'DISCONNECTED' ? 'is-disconnected' : '';
+            const playerColor = getAvatarColor(player.avatarType);
+
+            return `
+                <div class="player-card ${isCurrentClass} ${isDisconnectedClass}">
+                    <div class="player-avatar-icon" style="background-color: ${playerColor};">
+                        ${player.name.substring(0, 1).toUpperCase()}
+                    </div>
+                    <div class="player-info">
+                        <h5>${player.name}</h5>
+                        <p>Маркеры: ${player.collectedMarkerIds.length}</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        // И заменяем содержимое только этого блока
+        playerListContainer.innerHTML = playersHTML;
+    }
+    renderGameBoard(globalState.game);
+}
+
 
 // ================= ГЕНЕРАТОРЫ HTML =================
 function generateLobbyHTML(rooms) {
@@ -148,7 +190,10 @@ function generateLobbyHTML(rooms) {
 }
 
 function generateGameHTML(gameState) {
-    const { roomId, roomName,currentPhase, currentPlayerId, players } = gameState;
+    if (!gameState) {
+        return '<h2>Загрузка данных игры...</h2>';
+    }
+    const { roomId, roomName,gamePhase, currentPlayerId, players } = gameState;
     const currentPlayer = players.find(p => p.id === currentPlayerId);
     const headerTitle = roomName || `Комната: #${roomId.substring(0, 6)}`;
 
@@ -168,27 +213,43 @@ function generateGameHTML(gameState) {
     }).join('');
 
     return `
-        <div class="game-header">
-            <h2>${headerTitle}</h2> 
+        <div class="game-view-header">
+            <h2>${headerTitle}</h2>
             <button id="leave-room-btn" class="btn">Выйти в лобби</button>
         </div>
-        <div class="game-layout">
-            <div class="game-info-panel">
-                <h3>Информация</h3>
+        
+        <div class="game-container">
+            <!-- КОЛОНКА 1: ЛЕВАЯ ПАНЕЛЬ -->
+            <div class="game-panel left-panel">
                 <div class="info-block">
-                    <p><strong>Статус:</strong> <span>${currentPhase}</span></p>
-                    <p><strong>Текущий ход:</strong> <span>${currentPlayer ? currentPlayer.name : 'Ожидание...'}</span></p>
+                    <h4>Информация</h4>
+                    <p><strong>Статус:</strong> <span>${gamePhase}</span></p>
+                    <p><strong>Текущий ход:</strong> <span>${currentPlayer ? currentPlayer.name : '...'}</span></p>
                 </div>
                 <div class="players-panel">
-                    <h4>Игроки:</h4>
+                    <h4>Игроки</h4>
                     <div id="player-list">${playersHTML}</div>
                 </div>
                 <div class="tile-panel">
-                    <h4>Лишний тайл:</h4>
-                    <div id="extra-tile-display" class="extra-tile-preview"></div>
+                    <h4>Лишний тайл</h4>
+                    <div id="extra-tile-display" class="extra-tile-preview">
+                        <!-- Сюда JS вставит тайл -->
+                    </div>
                 </div>
             </div>
-            <div id="game-board-wrapper" class="game-board-wrapper"></div>
+
+            <!-- КОЛОНКА 2: ЦЕНТРАЛЬНАЯ, С ДОСКОЙ -->
+            <div id="game-board-wrapper" class="game-board-wrapper">
+                <!-- Сюда JS вставит доску или анимацию -->
+            </div>
+
+            <!-- КОЛОНКА 3: ПРАВАЯ ПАНЕЛЬ -->
+            <div class="game-panel right-panel">
+                 <h4>Чат и Статистика</h4>
+                 <div class="chat-placeholder">
+                    (Здесь скоро будет чат)
+                 </div>
+            </div>
         </div>
     `;
 }
@@ -258,10 +319,6 @@ function bindStaticEvents() {
         if (!createRoomForm.dataset.handlerAttached) {
             createRoomForm.addEventListener('submit', (event) => {
                 event.preventDefault();
-                globalState.view = 'game';
-                globalState.game = null;
-                render();
-
                 const roomName = document.getElementById('room-name-input').value;
                 const maxPlayers = parseInt(document.getElementById('max-players-select').value, 10);
                 sendWebSocketMessage({
@@ -283,16 +340,25 @@ function handleServerMessage(message) {
 
     switch (msg.type) {
         case 'ROOM_LIST_UPDATE':
+            LoadingAnimator.stop();
             globalState.rooms = msg.rooms;
             globalState.view = 'lobby';
             localStorage.removeItem('currentRoomId');
             render();
             break;
         case 'GAME_STATE_UPDATE':
+            const isEnteringGameView = globalState.view !== 'game';
+            console.log("%c[Отладка] Получен GAME_STATE_UPDATE. Проверяем extraTile:", "color: purple; font-weight: bold;", msg.board ? msg.board.extraTile : 'ДОСКИ НЕТ');
             globalState.game = msg;
             globalState.view = 'game';
-            localStorage.setItem('currentRoomId', msg.roomId);
-            render();
+            if(msg.roomId) localStorage.setItem('currentRoomId', msg.roomId);
+            if (isEnteringGameView) {
+                // Если мы перешли из лобби, нужна полная перерисовка
+                render();
+            } else {
+                // Если мы уже были в игре, нужно только обновить элементы
+                updateGameView();
+            }
             break;
         case 'ERROR_MESSAGE':
             // Проверяем наличие специального кода ошибки
@@ -358,25 +424,27 @@ function initializeWebSocket() {
         connectionRetries = 0;
 
         // Если в очереди уже есть какие-то действия от пользователя, выполняем их
-        if (messageQueue.length > 0) {
+        while (messageQueue.length > 0) {
+            sendWebSocketMessage(messageQueue.shift());
             console.log(`В очереди есть ${messageQueue.length} действий пользователя. Выполняю их.`);
+        }
+        // Если пользователь ничего не нажимал, выполняем логику по умолчанию
+        const savedRoomId = localStorage.getItem('currentRoomId');
+        if (savedRoomId) {
+            console.log("Очередь пуста. Запрашиваю переподключение к комнате.");
+            sendWebSocketMessage({ type: 'RECONNECT_TO_ROOM', roomId: savedRoomId });
         } else {
-            // Если пользователь ничего не нажимал, выполняем логику по умолчанию
-            const savedRoomId = localStorage.getItem('currentRoomId');
-            if (savedRoomId) {
-                console.log("Очередь пуста. Запрашиваю переподключение к комнате.");
-                messageQueue.push({ type: 'RECONNECT_TO_ROOM', roomId: savedRoomId });
-            } else {
-                console.log("Очередь пуста. Запрашиваю список комнат.");
-                messageQueue.push({ type: 'GET_ROOM_LIST_REQUEST' });
-            }
+            console.log("Очередь пуста. Запрашиваю список комнат.");
+            sendWebSocketMessage({ type: 'GET_ROOM_LIST_REQUEST' });
+
         }
 
-        // Отправляем все, что есть в очереди (либо действия пользователя, либо дефолтный запрос)
-        while (messageQueue.length > 0) {
-            const message = messageQueue.shift();
-            sendWebSocketMessage(message);
-        }
+
+       //// Отправляем все, что есть в очереди (либо действия пользователя, либо дефолтный запрос)
+       //while (messageQueue.length > 0) {
+       //    const message = messageQueue.shift();
+       //    sendWebSocketMessage(message);
+       //}
     };
 
     socket.onmessage = handleServerMessage; // обработчик
@@ -462,6 +530,28 @@ function sendWebSocketMessage(payload) {
         initializeWebSocket();
     }
 }
+function getMarkerStatus(markerData, gameState) {
+    const myPlayerId = localStorage.getItem('userId');
+    const ownerId = markerData.playerId; // ID игрока, чья это цель
+
+    if (!ownerId) {
+        return 'none'; // Это "свободный" маркер, никому не принадлежит
+    }
+
+    if (ownerId === myPlayerId) {
+        // Это МОЯ цель
+        return 'mine';
+    } else {
+        // Это ЧУЖАЯ цель
+        // Проверим, не собрал ли ее уже владелец
+        const ownerPlayer = gameState.players.find(p => p.id === ownerId);
+        if (ownerPlayer && ownerPlayer.collectedMarkerIds.includes(markerData.id)) {
+            return 'collected'; // Чужая, но уже собранная цель
+        }
+        return 'theirs'; // Чужая и еще не собранная цель
+    }
+}
+
 
 // ================= ЛОГИКА ОТРИСОВКИ ПОЛЯ =================
 // Главная функция отрисовки доски, вызывается из render()
@@ -521,6 +611,20 @@ function renderGameBoard(gameState) {
 
     // 4. Добавляем всю собранную доску на страницу
     wrapper.appendChild(boardElement);
+    const extraTileContainer = document.getElementById('extra-tile-display');
+
+    console.log("%c[Отладка] renderGameBoard пытается нарисовать extraTile.", "color: green; font-weight: bold;");
+    console.log(" -> Контейнер #extra-tile-display найден?", !!extraTileContainer);
+    console.log(" -> Данные gameState.board.extraTile существуют?", !!(gameState.board && gameState.board.extraTile));
+
+    if (extraTileContainer && gameState.board && gameState.board.extraTile) {
+        console.log("%c -> Условия выполнены. РИСУЕМ ТАЙЛ.", "color: green; font-weight: bold;");
+        extraTileContainer.innerHTML = '';
+        const extraTileElement = createTileElement(gameState.board.extraTile, gameState);
+        extraTileContainer.appendChild(extraTileElement);
+    } else {
+        console.error("%c -> Условия НЕ выполнены. ТАЙЛ НЕ БУДЕТ НАРИСОВАН.", "color: red; font-weight: bold;");
+    }
 }
 
 // Вспомогательная функция для создания ячейки. Мы ее уже писали, но я привожу ее здесь для полноты картины.
@@ -534,11 +638,11 @@ function createCellElement(cellData, gameState, isMyTurn) {
     }
 
     if (cellData.tile) {
-        cellDiv.appendChild(createTileElement(cellData.tile));
+        cellDiv.appendChild(createTileElement(cellData.tile, gameState));
     }
 
     if (cellData.stationary && cellData.marker) {
-        cellDiv.appendChild(createMarkerElement(cellData.marker));
+        cellDiv.appendChild(createMarkerElement(cellData.marker, gameState));
     }
 
     if (isMyTurn && gameState.gamePhase === 'PLAYER_MOVE') {
@@ -644,13 +748,7 @@ document.addEventListener('DOMContentLoaded', () => {
 //           ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ОТРИСОВКИ ДОСКИ
 // =========================================================================
 
-/**
- * Создает DOM-элемент для ОДНОГО тайла.
- * Эта функция будет выбирать случайный скин для тайла.
- * @param {object} tileData - Данные тайла от сервера (type, orientation, marker).
- * @returns {HTMLElement} - Готовый div-элемент для тайла.
- */
-function createTileElement(tileData) {
+function createTileElement(tileData,gameState) {
     const tileDiv = document.createElement('div');
     tileDiv.className = 'tile';
 
@@ -670,29 +768,21 @@ function createTileElement(tileData) {
 
     // Если на тайле есть маркер, добавляем его поверх
     if (tileData.marker) {
-        tileDiv.appendChild(createMarkerElement(tileData.marker));
+        tileDiv.appendChild(createMarkerElement(tileData.marker, gameState));
     }
 
     return tileDiv;
 }
 
-/**
- * Создает DOM-элемент для ОДНОГО маркера (сокровища).
- * @param {object} markerData - Данные маркера от сервера (id).
- * @returns {HTMLElement} - Готовый div-элемент для маркера.
- */
-function createMarkerElement(markerData) {
+function createMarkerElement(markerData, gameState) {
     const markerDiv = document.createElement('div');
     markerDiv.className = 'marker';
     markerDiv.textContent = markerData.id;
+    const status = getMarkerStatus(markerData, gameState);
+    markerDiv.classList.add(status);
     return markerDiv;
 }
 
-/**
- * Создает DOM-элемент для ОДНОЙ фишки игрока.
- * @param {object} playerData - Данные игрока от сервера.
- * @returns {HTMLElement} - Готовый div-элемент для фишки.
- */
 function createPlayerPieceElement(playerData) {
     const playerDiv = document.createElement('div');
     playerDiv.className = 'player-piece';
@@ -714,11 +804,6 @@ function createPlayerPieceElement(playerData) {
     return playerDiv;
 }
 
-/**
- * Возвращает цвет для аватара в зависимости от его типа.
- * @param {string} avatarType - Тип аватара от сервера.
- * @returns {string} - CSS-код цвета.
- */
 function getAvatarColor(avatarType) {
     const colors = {
         'KNIGHT': '#8a94a1',

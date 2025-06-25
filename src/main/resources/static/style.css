@@ -324,11 +324,45 @@ h1 {
     color: #333;
 }
 
-.game-layout {
+.game-container {
     display: grid;
-    /* Две колонки: левая 280px, правая занимает остальное место */
-    grid-template-columns: 280px 1fr;
-    gap: 30px;
+    /* Определяем три колонки:
+       1. Левая: 280px шириной
+       2. Центральная: занимает все оставшееся место (1fr)
+       3. Правая: 280px шириной
+    */
+    grid-template-columns: 280px 1fr 280px;
+    gap: 25px; /* Пространство между колонками */
+    align-items: flex-start; /* Выравниваем колонки по верху */
+    width: 100%;
+}
+
+/* Общий стиль для боковых панелей */
+.game-panel {
+    background-color: rgba(248, 249, 250, 0.8); /* Полупрозрачный фон */
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    backdrop-filter: blur(3px);
+}
+
+/* Центральная колонка с доской */
+.game-board-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* Убираем min-height, так как теперь размеры задаются сеткой */
+}
+
+/* Заглушка для будущего чата */
+.chat-placeholder {
+    margin-top: 15px;
+    padding: 20px;
+    background-color: #e9ecef;
+    border-radius: 6px;
+    text-align: center;
+    color: #6c757d;
+    min-height: 300px;
 }
 
 /* --- Левая панель с информацией --- */
@@ -355,6 +389,22 @@ h1 {
 .players-panel, .tile-panel {
     border-top: 1px solid #ddd;
     padding-top: 15px;
+}
+/* --- НОВЫЕ СТИЛИ, КОТОРЫЕ ВСЕ ИСПРАВЯТ --- */
+.extra-tile-preview {
+    /* Задаем явные размеры, равные размеру одной ячейки */
+    width: var(--cell-size, 60px);
+    height: var(--cell-size, 60px);
+
+    /* Просто для красоты, чтобы было видно, где он */
+    border: 2px dashed #ccc;
+    padding: 2px;
+    margin: 0 auto; /* Центрируем контейнер по горизонтали */
+
+    /* Это позволит тайлу внутри красиво вписаться */
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 /* --- Правая панель с полем --- */
@@ -551,6 +601,30 @@ h1 {
     position: absolute; /* Поверх тайла */
     z-index: 5;
     box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    transition: all 0.3s ease;
+}
+
+/* Стиль для МОЕЙ цели */
+.marker.mine {
+    background-color: #4caf50; /* Ярко-зеленый */
+    color: white;
+    border-color: #388e3c;
+    box-shadow: 0 0 15px #4caf50; /* Добавляем свечение */
+}
+
+/* Стиль для ЧУЖОЙ или свободной цели - СКРЫТ */
+.marker.theirs, .marker.none {
+    transform: scale(0);
+    opacity: 0;
+}
+
+/* Стиль для УЖЕ СОБРАННОЙ цели (неважно, чьей) */
+/* Мы можем показывать ее полупрозрачной */
+.marker.collected {
+    background-color: #757575; /* Серый */
+    color: #e0e0e0;
+    border-color: #616161;
+    opacity: 0.6;
 }
 
 /* 8. Стиль для фишки игрока */
