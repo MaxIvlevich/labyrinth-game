@@ -69,6 +69,7 @@ public class GameService {
         // }
 
     public GameRoom startGame(String roomId) {
+        log.info("startGame started");
         GameRoom room = roomService.getRoom(roomId);
         gameValidator.validateRoomBeforeGameStart(room);
 
@@ -236,17 +237,31 @@ public class GameService {
         GameRoom room = roomService.getRoom(roomId);
         gameValidator.validateRoomForJoin(room);
         UUID newPlayerId = newPlayer.getId();
-        Optional<Player> existingPlayerOpt = room.getPlayers().stream()
-                .filter(p -> p.getId().equals(newPlayerId))
-                .findFirst();
 
-        if (existingPlayerOpt.isPresent()) {
+        // --- НАЧАЛО ОТЛАДОЧНЫХ ЛОГОВ ---
+        log.info("----------------- DEBUG: addPlayerToRoom_START -----------------");
+        log.info("Trying to add player: ID={}, Name={}", newPlayerId, newPlayer.getName());
+        log.info("Current players in room (before add): {}", room.getPlayers().size());
+        // Выводим ID всех игроков, которые уже есть в комнате
+        room.getPlayers().forEach(p -> log.info(" -> Existing player in list: ID={}, Name={}", p.getId(), p.getName()));
+
+        // Проверяем, есть ли игрок с таким ID уже в списке
+        boolean alreadyInRoom = room.getPlayers().stream()
+                .anyMatch(p -> p.getId().equals(newPlayerId));
+
+        log.info("Check 'alreadyInRoom' result: {}", alreadyInRoom);
+        // --- КОНЕЦ ОТЛАДОЧНЫХ ЛОГОВ -
+
+        if (alreadyInRoom) {
             // Игрок уже в комнате! Это не ошибка, а переподключение.
-            Player existingPlayer = existingPlayerOpt.get();
-            log.info("Player {} ({}) is re-joining the room {}.",
-                    existingPlayer.getName(), newPlayerId, roomId);
-            // Убедимся, что его статус снова "CONNECTED"
-            existingPlayer.setStatus(PlayerStatus.CONNECTED);
+            room.getPlayers().stream()
+                    .filter(p -> p.getId().equals(newPlayerId))
+                    .findFirst()
+                    .ifPresent(player -> {
+                        log.info("Player {} ({}) is re-joining/already in room {}. Ensuring status is CONNECTED.",
+                                player.getName(), newPlayerId, roomId);
+                        player.setStatus(PlayerStatus.CONNECTED);
+                    });
         } else {
             // Если игрока нет, это новый участник. Добавляем его.
             log.info("New player {} ({}) is joining the room {}.",
@@ -269,105 +284,115 @@ public class GameService {
                 this.startGame(roomId);
             }
         }
+        log.info("Current players in room (after add): {}", room.getPlayers().size());
+        room.getPlayers().forEach(p -> log.info(" -> Final player in list: ID={}, Name={}", p.getId(), p.getName()));
+        log.info("----------------- DEBUG: addPlayerToRoom_END -----------------");
         return room;
     }
 
-    public GameRoom handlePlayerDisconnect(UUID disconnectedPlayerId, String roomId) {
-        log.info("Handling status change for disconnected player ID {} in room ID {}", disconnectedPlayerId, roomId);
-        GameRoom room = roomService.getRoom(roomId); // Предполагаем, что getRoom бросает исключение, если комната не найдена
+    public void  handlePlayerDisconnect(UUID disconnectedPlayerId, String roomId) {
+        log.info("handlePlayerDisconnect Player id  {}  room {}.", disconnectedPlayerId, roomId);
 
-        Optional<Player> playerOpt = room.getPlayers().stream()
-                .filter(p -> p.getId().equals(disconnectedPlayerId))
-                .findFirst();
+        GameRoom room = roomService.getRoom(roomId);
+        if (room == null) return; // Комнаты уже нет, ничего не делаем
 
-        if (playerOpt.isEmpty()) {
-            log.warn("Player ID {} not found in room {} during disconnect handling.", disconnectedPlayerId, roomId);
-            return room; // Ничего не делаем, если игрока и так нет
+        Player disconnectedPlayer = room.getPlayers().stream()
+                .filter(p -> p.getId().equals(disconnectedPlayerId)).findFirst().orElse(null);
+
+        if (disconnectedPlayer == null || disconnectedPlayer.getStatus() == PlayerStatus.DISCONNECTED) {
+            return; // Игрока нет или он уже помечен как отключенный
         }
 
-        Player disconnectedPlayer = playerOpt.get();
-
-        // Если игра уже завершена, ничего не меняем, просто выходим
-        if (room.getGamePhase() == GamePhase.GAME_OVER) {
-            log.info("Game in room {} was already over. No logic changes for disconnect of player {}.", roomId, disconnectedPlayer.getName());
-            return room;
-        }
-
-        // 1. Главное изменение: меняем статус вместо удаления
+        log.info("Player {} marked as DISCONNECTED in room {}.", disconnectedPlayer.getName(), roomId);
         disconnectedPlayer.setStatus(PlayerStatus.DISCONNECTED);
-        log.info("Player {} (name: {}) marked as DISCONNECTED in room {}.",
-                disconnectedPlayer.getId(), disconnectedPlayer.getName(), roomId);
 
-        // 2. Проверяем, не закончилась ли игра после этого отключения
-        boolean gameEnded = checkAndHandleGameEndConditions(room);
+        // Проверяем, не нужно ли завершить игру, ТОЛЬКО если все отключились
+        checkAndHandleGameEndOnDisconnect(room);
 
-        // 3. Если игра не закончилась, разбираемся с передачей хода
-        if (!gameEnded) {
-            handleTurnAfterDisconnect(room, disconnectedPlayer);
-        }
-        return room;
+        // Передаем ход, если отключился текущий игрок
+        handleTurnAfterDisconnect(room, disconnectedPlayer);
     }
 
-    private boolean checkAndHandleGameEndConditions(GameRoom room) {
+    private boolean permanentlyRemovePlayer(UUID playerId, String roomId) {
+
+        GameRoom room = roomService.getRoom(roomId);
+        if (room == null) return false;
+
+        boolean removed = room.getPlayers().removeIf(p -> p.getId().equals(playerId));
+
+        if (removed) {
+            log.info("Player {} has been physically removed from room {}.", playerId, roomId);
+
+            // После физического удаления проверяем, не закончилась ли игра
+            checkAndHandleGameEndConditions(room);
+
+            if (room.getPlayers().isEmpty()) {
+                log.info("Room {} is now empty and will be removed.", roomId);
+                roomService.removeRoom(roomId);
+                return true; // Комната была удалена
+            }
+        }
+        return false;
+    }
+    private void checkAndHandleGameEndConditions(GameRoom room) {
+        if (room.getGamePhase() == GamePhase.WAITING_FOR_PLAYERS) {
+            return; // Никогда не завершаем игру в фазе ожидания
+        }
 
         List<Player> activePlayers = room.getPlayers().stream()
                 .filter(p -> p.getStatus() == PlayerStatus.CONNECTED)
                 .toList();
-        boolean wasGameActive = room.getGamePhase().isActivePlayPhase();
-        // Сценарий 1: Остался один игрок (или ноль). Игра окончена.
-        if (activePlayers.size() < 2 && wasGameActive) {
+
+        // Завершаем игру, если активных игроков осталось меньше 2
+        if (activePlayers.size() < 2) {
             log.info("Less than 2 active players left in room {}. Game over.", room.getRoomId());
             room.setGamePhase(GamePhase.GAME_OVER);
-            room.setCurrentPlayerIndex(-1); // Хода больше нет
-
-            if (activePlayers.size() == 1) {
-                Player winner = activePlayers.get(0);
-                room.setWinner(winner);
-                log.info("Player {} is the winner by default in room {}.", winner.getName(), room.getRoomId());
-            } else {
-                room.setWinner(null); // Победителя нет, если все отключились
-            }
-            return true; // Игра завершена
-        }
-
-        // Сценарий 2: Все игроки в комнате отключились.
-        boolean allDisconnected = room.getPlayers().stream().allMatch(p -> p.getStatus() == PlayerStatus.DISCONNECTED);
-        if(allDisconnected && wasGameActive){
-            log.info("All players in room {} are disconnected. Setting phase to GAME_OVER.", room.getRoomId());
-            room.setGamePhase(GamePhase.GAME_OVER);
-            room.setWinner(null);
             room.setCurrentPlayerIndex(-1);
-            return true; // Игра завершена
+            if (activePlayers.size() == 1) {
+                room.setWinner(activePlayers.get(0));
+            } else {
+                room.setWinner(null);
+            }
         }
+    }
 
-        return false;
+    // Этот метод вызывается ТОЛЬКО при дисконнекте, он НЕ завершает игру
+    private void checkAndHandleGameEndOnDisconnect(GameRoom room) {
+        if (room.getGamePhase() == GamePhase.WAITING_FOR_PLAYERS) {
+            return;
+        }
+        boolean allPlayersDisconnected = room.getPlayers().stream()
+                .allMatch(p -> p.getStatus() == PlayerStatus.DISCONNECTED);
+        if(allPlayersDisconnected) {
+            log.info("All players in room {} are disconnected. Marking game as over.", room.getRoomId());
+            room.setGamePhase(GamePhase.GAME_OVER);
+        }
     }
 
     private void handleTurnAfterDisconnect(GameRoom room, Player disconnectedPlayer) {
-        boolean wasCurrentPlayer = room.getCurrentPlayer() != null && room.getCurrentPlayer().getId().equals(disconnectedPlayer.getId());
 
-        if (wasCurrentPlayer) {
-            log.info("Current player {} disconnected. Passing turn to the next active player.", disconnectedPlayer.getName());
+        Player currentPlayerBeforeDisconnect = room.getCurrentPlayer();
 
-            int startIndex = room.getCurrentPlayerIndex();
-            // Ищем по кругу, начиная со следующего за отключившимся
-            for (int i = 1; i <= room.getPlayers().size(); i++) {
-                int nextIndex = (startIndex + i) % room.getPlayers().size();
-                Player nextPlayer = room.getPlayers().get(nextIndex);
-
-                if (nextPlayer.getStatus() == PlayerStatus.CONNECTED) {
-                    room.setCurrentPlayerIndex(nextIndex);
-                    room.setGamePhase(GamePhase.PLAYER_SHIFT); // Новый игрок всегда начинает со сдвига
-                    log.info("Turn passed to player {} (name: {}) in room {}.",
-                            nextPlayer.getId(), nextPlayer.getName(), room.getRoomId());
-                    return; // Ход передан, выходим
-                }
-            }
+        // Если текущего игрока не было (фаза WAITING), или отключился не он, ничего не делаем с ходом.
+        if (currentPlayerBeforeDisconnect == null || !currentPlayerBeforeDisconnect.equals(disconnectedPlayer)) {
+            log.info("Turn state not changed. Current player was not the one who disconnected, or game hasn't started.");
+            return;
         }
-        // Индексы не сдвинулись, ход остается у того же игрока.
-        else {
-            log.info("Non-current player {} disconnected. Game continues. Current turn belongs to {}.",
-                    disconnectedPlayer.getName(), room.getCurrentPlayer().getName());
+
+        // Если мы дошли сюда, значит, отключился текущий игрок в активной фазе.
+        log.info("Current player {} disconnected. Passing turn to the next active player.", disconnectedPlayer.getName());
+
+        int startIndex = room.getCurrentPlayerIndex();
+        for (int i = 1; i <= room.getPlayers().size(); i++) {
+            int nextIndex = (startIndex + i) % room.getPlayers().size();
+            Player nextPlayer = room.getPlayers().get(nextIndex);
+
+            if (nextPlayer.getStatus() == PlayerStatus.CONNECTED) {
+                room.setCurrentPlayerIndex(nextIndex);
+                room.setGamePhase(GamePhase.PLAYER_SHIFT);
+                log.info("Turn passed to player {}.", nextPlayer.getName());
+                return;
+            }
         }
     }
 

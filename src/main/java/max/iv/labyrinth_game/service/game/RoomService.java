@@ -2,6 +2,7 @@ package max.iv.labyrinth_game.service.game;
 
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.model.game.GameRoom;
+import max.iv.labyrinth_game.model.game.enums.PlayerStatus;
 import max.iv.labyrinth_game.websocket.dto.RoomInfoDTO;
 import max.iv.labyrinth_game.websocket.events.lobby.LobbyRoomListNeedsUpdateEvent;
 import org.springframework.context.ApplicationEventPublisher;
@@ -78,10 +79,14 @@ public class RoomService {
 
     private RoomInfoDTO mapGameRoomToRoomInfoDTO(GameRoom room) {
         if (room == null) return null;
+
+        int currentPlayerCount = (int) room.getPlayers().stream()
+                .filter(p -> p.getStatus() == PlayerStatus.CONNECTED)
+                .count();
         return new RoomInfoDTO(
                 room.getRoomId(),
                 room.getRoomName(),
-                room.getPlayers() != null ? room.getPlayers().size() : 0,
+                currentPlayerCount,
                 room.getMaxPlayers(),
                 room.getGamePhase()
         );

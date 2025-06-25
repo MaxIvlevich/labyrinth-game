@@ -84,7 +84,9 @@ public class LobbyBroadcaster {
         for (String sessionId : new HashSet<>(lobbySessions.keySet())) {
             WebSocketSession session = sessionManager.getActiveSessionById(sessionId);
             if (session != null && session.isOpen()) {
-                sessionManager.sendMessageToSession(session, payload, objectMapper);
+                if (sessionManager.getRoomIdBySession(session) == null) {
+                    sessionManager.sendMessageToSession(session, payload, objectMapper);
+                }
             } else {
                 lobbySessions.remove(sessionId);
                 log.warn("Removed stale or closed session {} from lobbySessions.", sessionId);

@@ -44,6 +44,7 @@ public class LeaveRoomMessageHandler implements WebSocketMessageHandler {
 
         try {
             boolean roomWasRemoved = gameService.removePlayerFromRoom(playerId, roomId);
+            eventPublisher.publishEvent(new RoomStateNeedsBroadcastEvent(this, roomId));
 
             sessionManager.returnPlayerToLobby(session.getId());
             eventPublisher.publishEvent(new PlayerReturnedToLobbyEvent(this, session, playerId));

@@ -283,6 +283,10 @@ function handleServerMessage(message) {
 
     switch (msg.type) {
         case 'ROOM_LIST_UPDATE':
+            if (globalState.view !== 'lobby') {
+                console.warn("Получено обновление списка комнат, но мы не в лобби. Игнорируем.");
+                break; // Игнорируем сообщение
+            }
             globalState.rooms = msg.rooms;
             globalState.view = 'lobby';
             localStorage.removeItem('currentRoomId');
@@ -733,109 +737,115 @@ function getAvatarColor(avatarType) {
 // =========================================================================
 
 const LoadingAnimator = {
+    isAnimating: false,
     intervalId: null,      // ID для setInterval, чтобы его можно было остановить
     flipTimeoutId: null,   // ID для setTimeout для "переворота"
     container: null,       // Ссылка на контейнер, в котором идет анимация
+    occupiedCells: new Set(), //хранит координаты занятых ячеек в виде "x-y"
 
     /**
      * Запускает анимацию внутри указанного DOM-элемента.
      * @param {HTMLElement} targetContainer - div, в который нужно встроить анимацию.
      */
-    start(targetContainer) {
-        if (this.intervalId) {
-            // Если анимация уже запущена, ничего не делаем
-            return;
-        }
-
-        console.log("Запуск анимации ожидания...");
+    async start(targetContainer) {
+        if (this.isAnimating) return;
+        this.isAnimating = true;
         this.container = targetContainer;
+        console.log("Запуск управляемой анимации ожидания...");
 
-        // 1. Создаем и вставляем пустую доску
         this.container.innerHTML = '<div class="game-board loading-board"></div>';
         const boardElement = this.container.querySelector('.loading-board');
-
-        // Устанавливаем CSS переменные (размер доски всегда 7x7 для анимации)
         boardElement.style.setProperty('--board-size', 7);
-        boardElement.style.setProperty('--cell-size', `60px`); // Можно использовать константу CELL_SIZE
+        boardElement.style.setProperty('--cell-size', `60px`);
 
-        // 2. Запускаем интервал, который будет "ронять" тайлы
-        this.intervalId = setInterval(() => {
-            this.dropRandomTile(boardElement);
-        }, 200); // Каждые 200мс появляется новый тайл
+        // Запускаем бесконечный цикл, который прервется только вызовом .stop()
+        while (this.isAnimating) {
 
-        // 3. Запускаем первый "переворот" доски
-        this.scheduleFlip(boardElement);
+            // --- СЦЕНА 1: ЗАПОЛНЕНИЕ ДОСКИ ---
+            // Эта функция теперь сама отвечает за свою длительность.
+            await this.fillTheBoard(boardElement);
+
+            // Проверяем флаг после каждого шага. Если вызвали .stop() во время заполнения, выходим.
+            if (!this.isAnimating) break;
+
+            // --- СЦЕНА 2: ПАУЗА ---
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Увеличим паузу до 2 секунд
+            if (!this.isAnimating) break;
+
+            // --- СЦЕНА 3: ОЧИСТКА ---
+            await this.clearTheBoardWithAnimation(boardElement);
+            if (!this.isAnimating) break;
+        }
+
+        console.log("Цикл анимации завершен.");
     },
 
     /**
      * Полностью останавливает анимацию и очищает контейнер.
      */
     stop() {
-        if (!this.intervalId) return; // Если не была запущена, ничего не делаем
-
+        if (!this.isAnimating) return;
         console.log("Остановка анимации ожидания.");
-        clearInterval(this.intervalId);
-        clearTimeout(this.flipTimeoutId);
+        // Просто выставляем флаг. Цикл while сам завершится на следующей проверке.
+        this.isAnimating = false;
+    },
 
-        this.intervalId = null;
-        this.flipTimeoutId = null;
+    async fillTheBoard(board) {
+        console.log("Сцена: Заполнение доски.");
+        const totalCells = 7 * 7;
+        const cells = Array.from({ length: totalCells }, (_, i) => i);
 
-        if (this.container) {
-            this.container.innerHTML = ''; // Очищаем контейнер
+        // Перемешиваем массив индексов
+        for (let i = cells.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [cells[i], cells[j]] = [cells[j], cells[i]];
+        }
+
+        for (const index of cells) {
+            // Проверяем флаг перед каждой операцией
+            if (!this.isAnimating) return;
+
+            const x = (index % 7) + 1;
+            const y = Math.floor(index / 7) + 1;
+
+            const tile = this.createRandomTile();
+            tile.style.gridColumn = x;
+            tile.style.gridRow = y;
+
+            board.appendChild(tile);
+
+            // Короткая пауза между появлением тайлов
+            await new Promise(resolve => setTimeout(resolve, 40));
         }
     },
 
-    /**
-     * Вспомогательная функция: создает и "роняет" случайный тайл в случайную ячейку.
-     * @param {HTMLElement} board - Элемент доски, куда добавлять тайлы.
-     */
-    dropRandomTile(board) {
-        // Создаем сам тайл
+    async clearTheBoardWithAnimation(board) {
+        console.log("Сцена: Очистка доски.");
+        // Добавляем класс, который запускает CSS-анимацию
+        board.classList.add('is-clearing-animation');
+
+        await new Promise(resolve => setTimeout(resolve, 1500)); // 1500мс - длительность анимации 'spin-and-clear'
+        // Если за время анимации нас не остановили, выполняем очистку
+        if (this.isAnimating) {
+            board.innerHTML = ''; // Удаляем все тайлы
+            board.classList.remove('is-clearing-animation');
+        }
+    },
+    createRandomTile() {
         const tile = document.createElement('div');
-        tile.className = 'tile-loading'; // Специальный класс для анимации появления
+        tile.className = 'tile-loading';
 
-        // Выбираем случайный тип тайла
-        const types = ['straight', 'corner', 't_shaped'];
+        const theme = TILE_THEMES[currentTheme];
+        const types = Object.keys(theme.variants);
         const randomType = types[Math.floor(Math.random() * types.length)];
+        const availableVariants = theme.variants[randomType];
+        const randomVariantFileName = availableVariants[Math.floor(Math.random() * availableVariants.length)];
 
-        // Выбираем случайный скин (можно использовать тот же `createTileElement` или упрощенную версию)
-        tile.style.backgroundImage = `url('/images/tiles/classic/${randomType}.png')`; // Упрощенно
+        tile.style.backgroundImage = `url('${theme.path}${randomVariantFileName}.${theme.extension}')`;
         tile.style.transform = `rotate(${90 * Math.floor(Math.random() * 4)}deg)`;
 
-        // Выбираем случайную ячейку
-        const x = Math.floor(Math.random() * 7) + 1;
-        const y = Math.floor(Math.random() * 7) + 1;
-        tile.style.gridColumn = x;
-        tile.style.gridRow = y;
-
-        board.appendChild(tile);
-
-        // Через некоторое время удаляем тайл, чтобы доска не переполнялась
-        setTimeout(() => tile.remove(), 2000);
-    },
-
-    /**
-     * Запускает анимацию "переворота" и планирует следующую.
-     * @param {HTMLElement} board - Элемент доски для анимации.
-     */
-    scheduleFlip(board) {
-        this.flipTimeoutId = setTimeout(() => {
-            board.classList.add('is-flipping');
-
-            // Во время "переворота" (когда доска невидима) очищаем все тайлы
-            setTimeout(() => {
-                board.innerHTML = '';
-            }, 800); // Должно быть чуть меньше половины времени анимации 'flip-board'
-
-            // Убираем класс анимации после ее завершения
-            board.addEventListener('animationend', () => {
-                board.classList.remove('is-flipping');
-            }, { once: true });
-
-            // Планируем следующий переворот
-            this.scheduleFlip(board);
-
-        }, 7000); // Каждые 7 секунд
+        return tile;
     }
+
 };
 

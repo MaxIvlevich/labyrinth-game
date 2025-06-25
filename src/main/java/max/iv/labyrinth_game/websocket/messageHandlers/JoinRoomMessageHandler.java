@@ -4,10 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.exceptions.ErrorType;
+import max.iv.labyrinth_game.exceptions.game.GameLogicException;
 import max.iv.labyrinth_game.model.game.Base;
+import max.iv.labyrinth_game.model.game.GameRoom;
 import max.iv.labyrinth_game.model.game.Player;
 import max.iv.labyrinth_game.service.game.GameService;
-import max.iv.labyrinth_game.websocket.GameStateBroadcaster;
+import max.iv.labyrinth_game.service.game.RoomService;
 import max.iv.labyrinth_game.websocket.SessionManager;
 import max.iv.labyrinth_game.websocket.dto.BaseMessage;
 import max.iv.labyrinth_game.websocket.dto.GameMessageType;
@@ -20,6 +22,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -31,23 +34,19 @@ import static max.iv.labyrinth_game.websocket.config.JwtAuthHandshakeInterceptor
 public class JoinRoomMessageHandler implements WebSocketMessageHandler {
 
     private final GameService gameService;
+    private final RoomService roomService;
     private final SessionManager sessionManager;
-    private final GameStateBroadcaster gameStateBroadcaster;
-    private final ObjectMapper objectMapper;
     private final Validator validator;
     private final ApplicationEventPublisher eventPublisher;
 
     @Autowired
     public JoinRoomMessageHandler(GameService gameService,
-                                  SessionManager sessionManager,
-                                  GameStateBroadcaster gameStateBroadcaster,
-                                  ObjectMapper objectMapper,
+                                  RoomService roomService, SessionManager sessionManager,
                                   Validator validator,
                                   ApplicationEventPublisher eventPublisher) {
         this.gameService = gameService;
+        this.roomService = roomService;
         this.sessionManager = sessionManager;
-        this.gameStateBroadcaster = gameStateBroadcaster;
-        this.objectMapper = objectMapper;
         this.validator = validator;
         this.eventPublisher = eventPublisher;
     }
@@ -66,27 +65,37 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler {
             // 1. Извлекаем ID и имя пользователя из атрибутов сессии
             UUID userId = (UUID) session.getAttributes().get(USER_ID_ATTRIBUTE_KEY);
             String userName = (String) session.getAttributes().get(USER_NAME_ATTRIBUTE_KEY);
-
+            String roomIdToJoin = request.getRoomId();
             if (userId == null || userName == null) {
                 sessionManager.sendErrorMessageToSession(session, "Authentication error. Cannot join room.", ErrorType.UNAUTHORIZED);
                 return;
             }
 
-            // Проверяем, не сидит ли эта СЕССИЯ уже в какой-то комнате
-            if (sessionManager.getRoomIdBySession(session) != null) {
-                sessionManager.sendErrorMessageToSession(session, "Your current session is already in a room. Leave it first.",ErrorType.DOUBLE_SESSION_AUTHORIZED);
-                return;
-            }
+           // // Проверяем, не сидит ли эта СЕССИЯ уже в какой-то комнате
+           // if (sessionManager.getRoomIdBySession(session) != null) {
+           //     sessionManager.sendErrorMessageToSession(session,
+           //             "Your current session is already in a room. Leave it first.",ErrorType.DOUBLE_SESSION_AUTHORIZED);
+           //     return;
+           // }
 
-            String roomIdToJoin = request.getRoomId();
             log.info("Handling JOIN_ROOM request from player {} ({}) for room {}", userName, userId, roomIdToJoin);
 
             try {
-                // 1. Создаем объект игрока
-                Player newPlayer = new Player(userId, userName, new Base(0, 0, Set.of()));
+                GameRoom room = roomService.getRoom(roomIdToJoin);
 
-                // 2. проверяем и присоединяем
-                gameService.addPlayerToRoom(roomIdToJoin, newPlayer);
+                Optional<Player> existingPlayerOpt = room.getPlayers().stream()
+                        .filter(p -> p.getId().equals(userId))
+                        .findFirst();
+
+                if (existingPlayerOpt.isPresent()) {
+                    log.info("Player {} is re-joining room {} from lobby.", userId, roomIdToJoin);
+                } else {
+                    // СЦЕНАРИЙ 2: НОВЫЙ ИГРОК
+                    // Здесь мы вызываем gameService, как и раньше.
+                    log.info("Handling JOIN_ROOM request for new player {} for room {}", userName, roomIdToJoin);
+                    Player newPlayer = new Player(userId, userName, new Base(0, 0, Set.of()));
+                    gameService.addPlayerToRoom(roomIdToJoin, newPlayer);
+                }
 
                 // 3. Если не было исключений, значит все прошло успешно. Ассоциируем сессию.
                 sessionManager.associatePlayerWithSession(session, userId, roomIdToJoin);
@@ -98,10 +107,10 @@ public class JoinRoomMessageHandler implements WebSocketMessageHandler {
 
                 log.info("Player {} successfully processed to join room {}", userName, roomIdToJoin);
 
-            } catch (Exception e) {
+            } catch (GameLogicException | IllegalArgumentException e) {
                 log.warn("Failed to process JOIN_ROOM for player {} into room {}: {}", userId, roomIdToJoin, e.getMessage());
                 // Отправляем понятное сообщение об ошибке на фронт
-                sessionManager.sendErrorMessageToSession(session, e.getMessage(),objectMapper);
+                sessionManager.sendErrorMessageToSession(session, e.getMessage(), ErrorType.ROOM_IS_FULL);
             }
     }
 }

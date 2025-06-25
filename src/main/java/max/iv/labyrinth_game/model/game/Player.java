@@ -7,6 +7,7 @@ import max.iv.labyrinth_game.model.game.enums.PlayerAvatar;
 import max.iv.labyrinth_game.model.game.enums.PlayerStatus;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -14,7 +15,7 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 public class Player {
-    private UUID id; // WebSocket session ID
+    private UUID id;
     private String name;
     private PlayerAvatar avatar;
     private int currentX;
@@ -84,5 +85,22 @@ public class Player {
     public void moveTo(int moveToX, int moveToY) {
         this.currentX = moveToX;
         this.currentY = moveToY;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        // Проверяем, что объект не null и того же класса
+        if (o == null || getClass() != o.getClass()) return false;
+        // Приводим объект к нашему типу
+        Player player = (Player) o;
+        // Сравниваем игроков ТОЛЬКО по их уникальному ID
+        return Objects.equals(id, player.id);
+    }
+
+    @Override
+    public int hashCode() {
+        // Хэш-код должен вычисляться на основе тех же полей, что и в equals
+        return Objects.hash(id);
     }
 }

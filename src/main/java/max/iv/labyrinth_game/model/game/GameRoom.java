@@ -15,7 +15,7 @@ public class GameRoom {
     private String roomName;
     private Board board;
     private List<Player> players;
-    private int currentPlayerIndex;
+    private int currentPlayerIndex = -1;
     private GamePhase gamePhase;
     private Player winner;
     private int maxPlayers;
