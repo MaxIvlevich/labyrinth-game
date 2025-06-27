@@ -10,29 +10,110 @@
 
     <!-- Это будет наш основной файл стилей. Создай его, если еще нет -->
     <link rel="stylesheet" href="style.css">
+    <!-- ПОДКЛЮЧАЕМ PETITE-VUE -->
+    <script src="https://unpkg.com/petite-vue"></script>
 </head>
 <body>
 <!-- Главная обертка для всей страницы -->
-<div class="page-wrapper">
+<div class="page-wrapper" >
     <header class="main-header">
-        <!-- Левая часть шапки: лого и название -->
         <a href="/index.html" class="header-link">
             <div class="header-title">
                 <img src="/images/logo.png" alt="Логотип Лабиринт" class="logo">
                 <h1>Лабиринт Онлайн</h1>
             </div>
         </a>
-
-        <!-- Правая часть шапки: информация о пользователе и выход -->
         <div class="user-info-header">
-            <span id="username-display"></span>
-            <button id="logout-btn" class="btn btn-logout">Выйти</button>
+            <!-- v-text="username" - автоматически вставит имя пользователя из нашего хранилища -->
+            <span  v-text="username"></span>
+            <!-- @click="actions.logout" - при клике вызовет метод logout из объекта actions -->
+            <button @click="actions.logout()">Выйти</button>
         </div>
     </header>
 
-    <!-- Основной контейнер, куда JavaScript будет "рисовать" лобби или игру -->
-    <main id="app" class="content"></main>
+    <main class="content">
 
+        <!-- ======================= ВИД ЗАГРУЗКИ ======================= -->
+        <div v-if="view === 'loading'">
+            <h2>Подключение к серверу...</h2>
+        </div>
+
+        <!-- ======================= ВИД ЛОББИ ======================= -->
+        <div v-if="view === 'lobby'">
+            <div class="lobby-header">
+                <h2>Лобби</h2>
+                <p>Создайте свою игру или присоединяйтесь к существующей</p>
+            </div>
+            <div class="lobby-actions">
+                <!-- @click вызывает метод, который покажет модальное окно -->
+                <button id="create-room-btn" class="btn btn-primary" @click="actions.showCreateRoomModal()">Создать комнату</button>
+            </div>
+            <div class="room-list-container">
+                <h3>Доступные комнаты:</h3>
+                <!-- v-if/v-else - показывают либо список комнат, либо сообщение -->
+                <div v-if="rooms.length > 0" class="room-list">
+                    <!-- v-for - это цикл. Он создаст по одной карточке для каждой комнаты в массиве 'rooms' -->
+                    <div v-for="room in rooms" class="room-card"
+                         :aria-disabled="room.currentPlayerCount >= room.maxPlayers || room.gamePhase !== 'WAITING_FOR_PLAYERS'"
+                         @click="actions.joinRoom(room.roomId)">
+                        <h4 v-text="room.roomName || `Комната #${room.roomId.substring(0, 6)}`"></h4>
+                        <p class="room-players">Игроки: {{ room.currentPlayerCount }} / {{ room.maxPlayers }}</p>
+                        <!-- :class - динамически добавляет CSS-класс -->
+                        <p class="room-status" :class="getRoomStatusClass(room)">{{ getRoomStatusText(room) }}</p>
+                    </div>
+                </div>
+                <p v-else class="status-text">Нет доступных комнат. Создайте свою!</p>
+            </div>
+        </div>
+
+        <!-- ======================= ВИД ИГРЫ ======================= -->
+        <!-- v-if="view === 'game' && game" - блок покажется, только когда есть данные об игре -->
+        <div v-if="view === 'game' && game">
+            <div class="game-view-header">
+                <h2 v-text="game.roomName || `Комната #${game.roomId.substring(0, 6)}`"></h2>
+                <button id="leave-room-btn" class="btn" @click="actions.leaveRoom()">Выйти в лобби</button>
+            </div>
+            <div class="game-container">
+                <!-- Левая панель -->
+                <div class="game-panel left-panel">
+                    <div class="info-block">
+                        <h4>Информация</h4>
+                        <p><strong>Статус:</strong> <span v-text="game.currentPhase"></span></p>
+                        <p><strong>Текущий ход:</strong> <span v-text="game.currentPlayer ? game.currentPlayer.name : 'Ожидание...'"></span></p>
+                    </div>
+                    <div class="players-panel">
+                        <h4>Игроки</h4>
+                        <div id="player-list">
+                            <div v-for="player in game.players" class="player-card" :class="{'is-current-player': player.id === game.currentPlayerId, 'is-disconnected': player.status === 'DISCONNECTED'}">
+                                <div class="player-avatar-icon" :style="{ backgroundColor: getAvatarColor(player.avatarType) }">
+                                    {{ player.name.substring(0, 1).toUpperCase() }}
+                                </div>
+                                <div class="player-info">
+                                    <h5 v-text="player.name"></h5>
+                                    <p>Маркеры: {{ player.collectedMarkerIds.length }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tile-panel">
+                        <h4>Лишний тайл</h4>
+                        <!-- Контейнер для лишнего тайла. JS будет работать с ним. -->
+                        <div id="extra-tile-display" class="extra-tile-preview"></div>
+                    </div>
+                </div>
+                <!-- Центральная колонка -->
+                <div id="game-board-wrapper" class="game-board-wrapper">
+                    <!-- Сюда JS будет рисовать доску или анимацию -->
+                </div>
+                <!-- Правая панель -->
+                <div class="game-panel right-panel">
+                    <h4>Чат и Статистика</h4>
+                    <div class="chat-placeholder">(Здесь скоро будет чат)</div>
+                </div>
+            </div>
+        </div>
+
+    </main>
     <footer class="main-footer">
         <p>© 2025 Лабиринт</p>
     </footer>
@@ -63,8 +144,17 @@
         </form>
     </div>
 </div>
+<div id="game-over-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <h3 id="game-over-title"></h3>
+        <p id="game-over-reason" class="status-text"></p>
+        <div class="modal-actions">
+            <button id="return-to-lobby-btn" class="btn btn-primary">Вернуться в лобби</button>
+        </div>
+    </div>
+</div>
 
 <!-- Подключаем наш главный скрипт в самом конце -->
-<script src="script.js"></script>
+<script src="script.js" type="module"></script>
 </body>
 </html>

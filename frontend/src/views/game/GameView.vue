@@ -1,0 +1,1 @@
+<template><h1>Игра</h1></template>

@@ -1,8 +1,10 @@
 package max.iv.labyrinth_game.mappers.game;
 
+import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.dto.geme.BoardDTO;
 import max.iv.labyrinth_game.dto.geme.PlayerDTO;
 import max.iv.labyrinth_game.model.game.GameRoom;
+import max.iv.labyrinth_game.model.game.Player;
 import max.iv.labyrinth_game.model.game.enums.GamePhase;
 import max.iv.labyrinth_game.websocket.dto.GameMessageType;
 import max.iv.labyrinth_game.websocket.dto.GameStateUpdateDTO;
@@ -16,12 +18,14 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Component
+@Slf4j
 public class GameStateMapper {
 
     private final PlayerMapper playerMapper;
     private final BoardMapper boardMapper;
 
     @Autowired
+
     public GameStateMapper(PlayerMapper playerMapper, BoardMapper boardMapper) {
         this.playerMapper = playerMapper;
         this.boardMapper = boardMapper;
@@ -41,15 +45,31 @@ public class GameStateMapper {
                     null
             );
         }
+        log.info("--- GameStateMapper.toDto ---");
+        log.info("Room ID: " + room.getRoomId());
 
+        List<Player> playersInRoom = room.getPlayers();
+        log.info("Количество игроков в GameRoom: " + (playersInRoom != null ? playersInRoom.size() : "null"));
         // Конвертируем список игроков
         List<PlayerDTO> playerDTOs = Collections.emptyList();
+
         if (room.getPlayers() != null) {
             playerDTOs = room.getPlayers().stream()
-                    .map(playerMapper::toDto)
+                    .map(player-> {
+                        // Логируем каждого игрока ПЕРЕД маппингом
+                        log.info("  Маппим игрока: " + player.getName() + " (ID: " + player.getId() + ")");
+                        PlayerDTO dto = playerMapper.toDto(player);
+                        // Логируем результат маппинга
+                        log.info("  Результат DTO: " + (dto != null ? dto.name() : "null"));
+                        return dto;
+                    })
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
         }
+
+
+        log.info("Итоговое количество PlayerDTO: " + playerDTOs.size());
+        log.info("-----------------------------");
         // Конвертируем доску
         BoardDTO boardDTO = boardMapper.toDto(room.getBoard());
 

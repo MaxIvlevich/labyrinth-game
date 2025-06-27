@@ -1,16 +1,18 @@
 // ================= ГЛОБАЛЬНОЕ СОСТОЯНИЕ И КОНСТАНТЫ =================
 // Единый объект, который хранит всё состояние фронтенда.
-let globalState = {
-    view: 'loading', // 'loading', 'lobby', 'game'
+import { reactive, createApp } from 'https://unpkg.com/petite-vue?module'
+
+const store  = reactive({
+    view: 'loading',
     rooms: [],
     game: null,
-};
+    username: localStorage.getItem('username') || 'Игрок',
+});
 
 // Константы, которые мы получаем при загрузке страницы
 const localAccessToken = localStorage.getItem('accessToken');
 const localUsername = localStorage.getItem('username');
 let socket = null;
-const cellSize = 50;
 let messageQueue = [];
 let isRefreshingToken = false;
 const RETRY_DELAY_MS = 2000;
@@ -34,8 +36,6 @@ const TILE_THEMES = {
     // Здесь можно будет добавлять другие темы, например 'space' или 'fantasy'
 };
 let currentTheme = localStorage.getItem('selectedTheme') || 'classic';
-
-
 async function refreshToken() {
     console.log("Попытка обновить токен...");
     const currentRefreshToken = localStorage.getItem('refreshToken');
@@ -76,183 +76,33 @@ async function refreshToken() {
 }
 
 
+// =========================================================================
+//            ДЕЙСТВИЯ (API для нашего HTML)
+// =========================================================================
+// Функции, которые мы будем вызывать из HTML через @click
+const actions = {
+    logout() {
+        // ... (fetch к /api/auth/logout) ...
+        localStorage.clear();
+        window.location.replace('/login.html');
+    },
+    showCreateRoomModal() {
+        document.getElementById('create-room-modal').classList.remove('hidden');
+    },
+    joinRoom(roomId) {
+        if (!roomId) return;
+        // При клике на комнату, мы сразу показываем загрузку
+        store.view = 'game';
+        store.game = null; // Очищаем старые данные
+        sendWebSocketMessage({ type: 'JOIN_ROOM', roomId });
+    },
+    leaveRoom() {
+        sendWebSocketMessage({ type: 'LEAVE_ROOM' });
+        // Очистка state произойдет, когда с сервера придет ROOM_LIST_UPDATE
+    },
+    // В будущем сюда можно добавить новые
+};
 
-
-// ================= ГЛАВНАЯ ФУНКЦИЯ ОТРИСОВКИ (RENDER) =================
-function render() {
-    const appContainer = document.getElementById('app');
-    if (!appContainer) {
-        console.error("Fatal Error: #app container not found in index.html!");
-        return;
-    }
-
-    console.log("[Отладка] Запущена функция render()");
-    const usernameDisplay = document.getElementById('username-display');
-    if (usernameDisplay) {
-        console.log("[Отладка] Элемент #username-display НАЙДЕН в DOM.");
-        console.log(`[Отладка] Устанавливаю текст: "${localUsername}"`);
-        usernameDisplay.textContent = localUsername || 'Игрок';
-    } else {
-        console.error("[Отладка] Элемент #username-display НЕ НАЙДЕН в DOM! Проверьте HTML.");
-    }
-
-    if (globalState.view === 'loading') {
-        appContainer.innerHTML = '<h2>Подключение к серверу...</h2>';
-    } else if (globalState.view === 'lobby') {
-        appContainer.innerHTML = generateLobbyHTML(globalState.rooms);
-    } else if (globalState.view === 'game') {
-        if (globalState.game) {
-            // Рисуем полный макет игры
-            appContainer.innerHTML = generateGameHTML(globalState.game);
-            // И обновляем динамические части
-            updateGameView();
-
-        } else {
-            appContainer.innerHTML = '<h2>Загрузка данных комнаты...</h2>';
-
-        }
-    }
-}
-function updateGameView() {
-    // Если по какой-то причине нет данных об игре, ничего не делаем.
-    if (!globalState.game) return;
-    const { gamePhase, currentPlayer, players } = globalState.game;
-    const statusEl = document.querySelector('.info-block span');
-    if (statusEl) {
-        statusEl.textContent = gamePhase;
-    }
-    const turnEl = document.querySelector('.info-block p:nth-child(2) span');
-    if (turnEl) {
-        turnEl.textContent = currentPlayer ? currentPlayer.name : 'Ожидание...';
-    }
-    const playerListContainer = document.getElementById('player-list');
-    if (playerListContainer) {
-        const playersHTML = players.map(player => {
-            const isCurrentClass = player.id === currentPlayer?.id ? 'is-current-player' : '';
-            const isDisconnectedClass = player.status === 'DISCONNECTED' ? 'is-disconnected' : '';
-            const playerColor = getAvatarColor(player.avatarType);
-
-            return `
-                <div class="player-card ${isCurrentClass} ${isDisconnectedClass}">
-                    <div class="player-avatar-icon" style="background-color: ${playerColor};">
-                        ${player.name.substring(0, 1).toUpperCase()}
-                    </div>
-                    <div class="player-info">
-                        <h5>${player.name}</h5>
-                        <p>Маркеры: ${player.collectedMarkerIds.length}</p>
-                    </div>
-                </div>
-            `;
-        }).join('');
-        // И заменяем содержимое только этого блока
-        playerListContainer.innerHTML = playersHTML;
-    }
-    renderGameBoard(globalState.game);
-}
-
-
-// ================= ГЕНЕРАТОРЫ HTML =================
-function generateLobbyHTML(rooms) {
-    let roomsHTML = '';
-    if (!rooms || rooms.length === 0) {
-        roomsHTML = '<p>Нет доступных комнат. Создайте свою!</p>';
-    } else {
-        roomsHTML = rooms.map(room => {
-            const displayName = room.roomName || `Комната #${room.roomId.substring(0, 6)}...`;
-            const playersInfo = `Игроки: ${room.currentPlayerCount} / ${room.maxPlayers}`;
-
-            let statusText = 'Ожидание игроков';
-            let statusClass = 'status-waiting';
-            const isFull = room.currentPlayerCount >= room.maxPlayers;
-            const isInGame = room.gamePhase === 'IN_GAME' || room.gamePhase === 'GAME_OVER';
-
-            if (isInGame) {
-                statusText = 'В игре';
-                statusClass = 'status-playing';
-            }
-            if (isFull) {
-                statusText = 'Заполнена';
-                statusClass = 'status-full';
-            }
-
-            return `
-                <div class="room-card" data-room-id="${room.roomId}" role="button" aria-disabled="${isFull || isInGame}">
-                    <h4>${displayName}</h4>
-                    <p class="room-players">${playersInfo}</p>
-                    <p class="room-status ${statusClass}">${statusText}</p>
-                </div>`;
-        }).join('');
-    }
-    return `
-        <div class="lobby-header"><h2>Лобби</h2><p>Создайте свою игру или присоединяйтесь к существующей</p></div>
-        <div class="lobby-actions"><button id="create-room-btn" class="btn btn-primary">Создать комнату</button></div>
-        <div class="room-list-container"><h3>Доступные комнаты:</h3><div class="room-list">${roomsHTML}</div></div>`;
-}
-
-function generateGameHTML(gameState) {
-    if (!gameState) {
-        return '<h2>Загрузка данных игры...</h2>';
-    }
-    const { roomId, roomName,gamePhase, currentPlayerId, players } = gameState;
-    const currentPlayer = players.find(p => p.id === currentPlayerId);
-    const headerTitle = roomName || `Комната: #${roomId.substring(0, 6)}`;
-
-    const playersHTML = players.map(player => {
-        const isCurrentClass = player.id === currentPlayerId ? 'is-current-player' : '';
-        return `
-            <div class="player-card ${isCurrentClass}">
-                <div class="player-avatar-icon" style="background-color: ${getAvatarColor(player.avatarType)};">
-                    ${player.name.substring(0, 1).toUpperCase()}
-                </div>
-                <div class="player-info">
-                    <h5>${player.name}</h5>
-                    <p>Маркеры: ${player.collectedMarkerIds.length}</p>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    return `
-        <div class="game-view-header">
-            <h2>${headerTitle}</h2>
-            <button id="leave-room-btn" class="btn">Выйти в лобби</button>
-        </div>
-        
-        <div class="game-container">
-            <!-- КОЛОНКА 1: ЛЕВАЯ ПАНЕЛЬ -->
-            <div class="game-panel left-panel">
-                <div class="info-block">
-                    <h4>Информация</h4>
-                    <p><strong>Статус:</strong> <span>${gamePhase}</span></p>
-                    <p><strong>Текущий ход:</strong> <span>${currentPlayer ? currentPlayer.name : '...'}</span></p>
-                </div>
-                <div class="players-panel">
-                    <h4>Игроки</h4>
-                    <div id="player-list">${playersHTML}</div>
-                </div>
-                <div class="tile-panel">
-                    <h4>Лишний тайл</h4>
-                    <div id="extra-tile-display" class="extra-tile-preview">
-                        <!-- Сюда JS вставит тайл -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- КОЛОНКА 2: ЦЕНТРАЛЬНАЯ, С ДОСКОЙ -->
-            <div id="game-board-wrapper" class="game-board-wrapper">
-                <!-- Сюда JS вставит доску или анимацию -->
-            </div>
-
-            <!-- КОЛОНКА 3: ПРАВАЯ ПАНЕЛЬ -->
-            <div class="game-panel right-panel">
-                 <h4>Чат и Статистика</h4>
-                 <div class="chat-placeholder">
-                    (Здесь скоро будет чат)
-                 </div>
-            </div>
-        </div>
-    `;
-}
 
 // ================= ОБРАБОТЧИКИ СОБЫТИЙ =================
 function bindAppEvents() {
@@ -331,76 +181,59 @@ function bindStaticEvents() {
             createRoomForm.dataset.handlerAttached = 'true';
         }
     }
+    document.getElementById('return-to-lobby-btn')?.addEventListener('click', () => {
+        // 1. Скрываем модальное окно конца игры
+        document.getElementById('game-over-modal').classList.add('hidden');
+
+        // 2. Очищаем данные о завершенной игре
+        localStorage.removeItem('currentRoomId');
+        globalState.game = null;
+        globalState.view = 'lobby';
+        // 3. Запрашиваем свежий список комнат для лобби
+        sendWebSocketMessage({ type: 'GET_ROOM_LIST_REQUEST' });
+    });
 }
 
 // ================= WEBSOCKET =================
 function handleServerMessage(message) {
     const msg = JSON.parse(message.data);
     console.log("Server -> Client:", msg);
-
     switch (msg.type) {
         case 'ROOM_LIST_UPDATE':
-            LoadingAnimator.stop();
-            globalState.rooms = msg.rooms;
-            globalState.view = 'lobby';
+            store.rooms = msg.rooms;
+            store.view = 'lobby';
             localStorage.removeItem('currentRoomId');
-            render();
             break;
         case 'GAME_STATE_UPDATE':
-            const isEnteringGameView = globalState.view !== 'game';
-            console.log("%c[Отладка] Получен GAME_STATE_UPDATE. Проверяем extraTile:", "color: purple; font-weight: bold;", msg.board ? msg.board.extraTile : 'ДОСКИ НЕТ');
-            globalState.game = msg;
-            globalState.view = 'game';
-            if(msg.roomId) localStorage.setItem('currentRoomId', msg.roomId);
-            if (isEnteringGameView) {
-                // Если мы перешли из лобби, нужна полная перерисовка
-                render();
-            } else {
-                // Если мы уже были в игре, нужно только обновить элементы
-                updateGameView();
-            }
+            store.game = msg;
+            store.view = 'game';
+            if (msg.roomId) localStorage.setItem('currentRoomId', msg.roomId);
             break;
         case 'ERROR_MESSAGE':
             // Проверяем наличие специального кода ошибки
-            switch (msg.errorType) {
-
-                case 'ROOM_NOT_FOUND':
-                    // Если мы получили ошибку "комната не найдена",
-                    // и мы действительно пытались войти в комнату
-                    if (localStorage.getItem('currentRoomId')) {
-                        console.warn("Попытка переподключения не удалась: комната не найдена. Переход в лобби.");
-                        localStorage.removeItem('currentRoomId');
-                        globalState.view = 'lobby';
-                        globalState.game = null;
-                        sendWebSocketMessage({ type: 'GET_ROOM_LIST_REQUEST' });
-                        render();
-                    } else {
-                        // Если мы получили эту ошибку, не находясь в комнате, просто покажем ее
-                        alert(msg.message);
-                    }
-                    break;
-                case 'ROOM_CREATED':
-                    console.log("Получено подтверждение создания комнаты. Ожидаем состояние игры...");
-                    break;
-
-                // Здесь можно будет добавить обработку других кодов ошибок
-                case 'NOT_YOUR_TURN':
-                    //  подсветить, чей сейчас ход
-                    console.warn(msg.message);
-                    showToast(msg.message);
-                    break;
-
-                // Ошибка по умолчанию для всех остальных кодов
-                default:
-                    console.error(`Получена необработанная ошибка: ${msg.errorType} - ${msg.message}`);
-                    alert(`Ошибка: ${msg.message}`);
-                    break;
+            if (msg.errorType === 'ROOM_NOT_FOUND' && localStorage.getItem('currentRoomId')) {
+                localStorage.removeItem('currentRoomId');
+                // Просто меняем view, petite-vue сама покажет лобби.
+                store.view = 'lobby';
+                // Запрос списка комнат можно отправить из initializeWebSocket при реконнекте
+            } else {
+                alert(`Ошибка: ${msg.message}`);
             }
             break;
+        case 'NOT_YOUR_TURN':
+            //  подсветить, чей сейчас ход
+            console.warn(msg.message);
+            showToast(msg.message);
+            break;
         case 'WELCOME_MESSAGE':
-            break; // Игнорируем, так как запрос списка идет в onopen
+            break;
+        // TODO добавить обработку других кодов ошибок
+
+        // Ошибка по умолчанию для всех остальных кодов
         default:
-            console.warn(`Unhandled message type: ${msg.type}`);
+            console.error(`Получена необработанная ошибка: ${msg.errorType} - ${msg.message}`);
+            alert(`Ошибка: ${msg.message}`);
+            break;
     }
 }
 
@@ -554,7 +387,11 @@ function getMarkerStatus(markerData, gameState) {
 
 
 // ================= ЛОГИКА ОТРИСОВКИ ПОЛЯ =================
-// Главная функция отрисовки доски, вызывается из render()
+function renderDynamicElements() {
+    if (store.view === 'game' && store.game) {
+        renderGameBoard(store.game);
+    }
+}
 function renderGameBoard(gameState) {
     const wrapper = document.getElementById('game-board-wrapper');
     // Если контейнер для доски не найден на странице, ничего не делаем
@@ -564,7 +401,7 @@ function renderGameBoard(gameState) {
     }
 
     // Получаем необходимые данные из gameState для удобства
-    const { board, players, gamePhase, currentPlayer } = gameState;
+    const { board, players, currentPhase, currentPlayer } = gameState;
     const myPlayerId = localStorage.getItem('userId');
     const isMyTurn = currentPlayer && currentPlayer.id === myPlayerId;
 
@@ -603,7 +440,7 @@ function renderGameBoard(gameState) {
     });
 
     // 3. Рендерим кнопки сдвига, но только если сейчас наш ход и правильная фаза
-    if (isMyTurn && gamePhase === 'PLAYER_SHIFT') {
+    if (isMyTurn && currentPhase === 'PLAYER_SHIFT') {
 
         boardElement.appendChild(createShiftButtons(board.size, gameState.roomId));
         console.log("Сейчас фаза сдвига, нужно отрисовать кнопки."); // Временный лог
@@ -725,24 +562,10 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.replace('/login.html');
         return;
     }
-
     bindStaticEvents();
-    bindAppEvents();
+   // bindAppEvents();
+    initializeWebSocket();
 
-    const savedRoomId = localStorage.getItem('currentRoomId');
-    if (savedRoomId) {
-        globalState.view = 'game';
-        globalState.isLoading = true;
-    } else {
-        globalState.view = 'lobby';
-        globalState.isLoading = false;
-    }
-    if (!localStorage.getItem('accessToken')) {
-        redirectToLogin();
-    } else {
-        render();
-        initializeWebSocket();
-    }
 });
 // =========================================================================
 //           ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ОТРИСОВКИ ДОСКИ
@@ -928,5 +751,41 @@ const LoadingAnimator = {
         return tile;
     }
 
+
 };
+
+function showGameOverModal(gameState) {
+    const modal = document.getElementById('game-over-modal');
+    const title = document.getElementById('game-over-title');
+    const reason = document.getElementById('game-over-reason');
+
+    if (gameState.winnerName) {
+        title.textContent = `Победитель: ${gameState.winnerName}!`;
+        reason.textContent = 'Поздравляем с победой!';
+    } else {
+        title.textContent = 'Игра завершена';
+        reason.textContent = 'Один из игроков покинул игру.';
+    }
+    modal.classList.remove('hidden');
+}
+
+// Запускаем petite-vue и связываем его с нашим объектом root
+PetiteVue.effect(() => {
+    // Эта функция будет автоматически вызываться каждый раз,
+    // когда меняется store.game или store.view
+    if (store.view === 'game') {
+        // Даем petite-vue мгновение, чтобы отрисовать DOM, а потом рисуем доску
+        setTimeout(() => renderDynamicElements(), 0);
+    }
+});
+
+// --- Теперь запускаем основную логику ---
+// Эта часть должна быть внутри DOMContentLoaded или вызываться из него
+document.addEventListener('DOMContentLoaded', () => {
+    // Привязываем события к элементам, которые не являются частью petite-vue (модалки)
+    bindStaticEvents();
+    // Запускаем WebSocket
+    initializeWebSocket();
+});
+
 
