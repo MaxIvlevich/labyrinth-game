@@ -1,6 +1,5 @@
 package max.iv.labyrinth_game.service.game;
 
-import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import max.iv.labyrinth_game.exceptions.ErrorType;
 import max.iv.labyrinth_game.exceptions.game.GameLogicException;
@@ -15,13 +14,9 @@ import max.iv.labyrinth_game.model.game.enums.PlayerAvatar;
 import max.iv.labyrinth_game.model.game.enums.PlayerStatus;
 import max.iv.labyrinth_game.service.game.actions.MoveActionContext;
 import max.iv.labyrinth_game.service.game.actions.ShiftActionContext;
-import max.iv.labyrinth_game.websocket.events.lobby.LobbyRoomListNeedsUpdateEvent;
-import max.iv.labyrinth_game.websocket.events.lobby.RoomStateNeedsBroadcastEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.EnumMap;
-import java.util.EventListener;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -30,7 +25,7 @@ import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -267,11 +262,17 @@ public class GameService {
             log.info("New player {} ({}) is joining the room {}.",
                     newPlayer.getName(), newPlayerId, roomId);
             int playerCount = room.getPlayers().size();
-            if (playerCount < avatars.size()) {
-                newPlayer.setAvatar(avatars.get(playerCount));
+            Set<PlayerAvatar> usedAvatars = room.getPlayers().stream()
+                    .map(Player::getAvatar)
+                    .collect(Collectors.toSet());
+            Optional<PlayerAvatar> freeAvatarOpt = avatars.stream()
+                    .filter(avatar -> !usedAvatars.contains(avatar))
+                    .findFirst();
+            if (freeAvatarOpt.isPresent()) {
+                newPlayer.setAvatar(freeAvatarOpt.get());
             } else {
-                log.warn("Not enough unique avatars for player count {}. Using default.", playerCount);
-                // Можно предусмотреть дефолтный аватар
+                log.warn("Not enough unique avatars for room {}. Assigning a default or random one.", roomId);
+                newPlayer.setAvatar(avatars.get(0));
             }
 
             room.addPlayer(newPlayer);

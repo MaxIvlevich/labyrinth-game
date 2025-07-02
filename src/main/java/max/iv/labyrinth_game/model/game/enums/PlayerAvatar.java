@@ -9,9 +9,9 @@ public enum PlayerAvatar {
     ROGUE("Разбойник", "rogue.png", "#808080");
 
 
-    private final String displayName;  // Имя, которое можно показать пользователю
-    private final String imageName;    // Имя файла изображения (путь будет на фронтенде)
-    private final String defaultColorHex; // Дефолтный цвет, если картинка не загрузится или для фона
+    private final String displayName;
+    private final String imageName;
+    private final String defaultColorHex;
 
     PlayerAvatar(String displayName, String imageName, String defaultColorHex) {
         this.displayName = displayName;

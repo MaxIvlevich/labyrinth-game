@@ -5,6 +5,9 @@ import { useAuthStore } from '@/stores/auth.js';
 let socket = null;
 let messageQueue = [];
 let isConnecting = false;
+let connectionRetries = 0;
+const MAX_RETRIES = 5;
+const RETRY_DELAY_MS = 3000;
 
 // Эта функция будет обрабатывать все сообщения от сервера.
 function handleServerMessage(event) {
@@ -30,7 +33,7 @@ function handleServerMessage(event) {
 }
 export function initializeWebSocket() {
     // Предотвращаем повторное подключение
-    if (socket && socket.readyState === WebSocket.OPEN) {
+    if (socket || isConnecting) {
         console.log("WebSocket уже подключен.");
         return;
     }
@@ -50,7 +53,8 @@ export function initializeWebSocket() {
 
     socket.onopen = () => {
         console.log("WebSocket-соединение успешно открыто.");
-
+        connectionRetries = 0;
+        isConnecting = false;
         // Отправляем сообщения из очереди, если они есть
         while (messageQueue.length > 0) {
             const message = messageQueue.shift();
@@ -72,18 +76,33 @@ export function initializeWebSocket() {
     };
 
     socket.onclose = async  (event) => {
-        if (event.code !== 1000) {
+        console.log(`Соединение WebSocket закрыто. Код: ${event.code}`);
+        socket = null;
+        isConnecting = false;
+        if (connectionRetries >= MAX_RETRIES) {
+            console.error("Достигнут лимит попыток переподключения. Выход из системы.");
             const authStore = useAuthStore();
-            console.log("Неожиданное закрытие. Попытка обновить токен и переподключиться...");
-            const refreshed = await authStore.handleRefreshToken();
-            if (refreshed) {
-                console.log("Токен обновлен, переподключаюсь...");
-                initializeWebSocket();
-            } else {
-                console.error("Не удалось обновить токен. Переподключение отменено.");
-            }
+            authStore.logout();
+            connectionRetries = 0;
+            return;
         }
+        connectionRetries++;
+        console.log(`Попытка переподключения №${connectionRetries} через ${RETRY_DELAY_MS / 1000} сек...`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+
+        const authStore = useAuthStore();
+        await authStore.handleRefreshToken();
+
+        // 5. Просто пытаемся подключиться снова.
+        initializeWebSocket();
     };
+}
+export function closeWebSocket() {
+    if (socket) {
+        console.log("Штатное закрытие WebSocket-соединения со стороны клиента.");
+        socket.close(1000, "User Action");
+        socket = null; // Обнуляем ссылку
+    }
 }
 export function sendMessage(payload) {
     if (socket && socket.readyState === WebSocket.OPEN) {
