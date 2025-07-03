@@ -12,7 +12,6 @@ defineProps({
 <template>
   <div class="cell" :class="{ stationary: cell.stationary }">
     <TilePiece v-if="cell.tile" :tile="cell.tile" />
-
   </div>
 </template>
 
@@ -28,5 +27,14 @@ defineProps({
 
 .cell.stationary {
   background-color: #bcaaa4;
+}
+.debug-coords {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  font-size: 10px;
+  color: red;
+  font-weight: bold;
+  opacity: 0.7;
 }
 </style>

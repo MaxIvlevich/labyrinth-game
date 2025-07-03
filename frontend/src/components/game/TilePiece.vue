@@ -8,16 +8,11 @@ const props = defineProps({
   }
 });
 
-// Пока что тема захардкожена. В будущем мы сможем брать ее из настроек пользователя.
 const currentTheme = ref('classic');
 
-// Вычисляемое свойство для URL картинки
-const imageUrl = computed(() => {
-  // Мы предполагаем, что сервер присылает тип в верхнем регистре (STRAIGHT, CORNER),
-  // а наши файлы названы в нижнем.
-  const tileType = props.tile.type.toLowerCase();
 
-  // Строим путь с учетом нашей новой структуры папок
+const imageUrl = computed(() => {
+  const tileType = props.tile.type.toLowerCase();
   return `/images/tiles/${currentTheme.value}/${tileType}.png`;
 });
 
