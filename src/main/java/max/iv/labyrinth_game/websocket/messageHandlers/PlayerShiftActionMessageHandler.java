@@ -59,7 +59,7 @@ public class PlayerShiftActionMessageHandler implements WebSocketMessageHandler{
             sessionManager.sendErrorMessageToSession(session, "Internal server error: Invalid message type for SHIFT action.", objectMapper);
             return;
         }
-        if (sessionManager.validateRequestAndSendError(session, request, validator, "CREATE_ROOM")) {
+        if (sessionManager.validateRequestAndSendError(session, request, validator, "PLAYER_ACTION_SHIFT")) {
             return;
         }
         UUID playerId = sessionManager.getPlayerIdBySession(session);

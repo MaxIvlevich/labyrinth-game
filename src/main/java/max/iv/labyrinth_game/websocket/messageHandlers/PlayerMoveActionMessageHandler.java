@@ -60,7 +60,7 @@ public class PlayerMoveActionMessageHandler implements WebSocketMessageHandler{
             sessionManager.sendErrorMessageToSession(session, "Internal server error: Invalid message type for MOVE action.", objectMapper);
             return;
         }
-        if (sessionManager.validateRequestAndSendError(session, request, validator, "CREATE_ROOM")) {
+        if (sessionManager.validateRequestAndSendError(session, request, validator, "PLAYER_ACTION_MOVE")) {
             return;
         }
 

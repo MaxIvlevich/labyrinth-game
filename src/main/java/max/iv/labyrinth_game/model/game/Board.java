@@ -11,7 +11,7 @@ import java.util.List;
 public class Board {
     private final int size;
     private final Cell[][] grid;
-    @Setter private Tile extraTile; // Тайл, который сейчас "в руках" у игрока
+    @Setter private Tile extraTile;
     private List<Marker> allMarkersInGame;
 
     public Board(int boardSize) {

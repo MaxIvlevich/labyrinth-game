@@ -87,7 +87,7 @@ public class SessionManager{
         String roomId = (String) session.getAttributes().get(ROOM_ID_ATTRIBUTE_KEY);
 
         if (playerId != null) {
-            playerIdToSessionId.remove(playerId);
+            playerIdToSessionId.remove(playerId,sessionId);
             terminationHandler.handleSessionTermination(session, playerId, roomId);
         } else {
             terminationHandler.handleSessionTermination(session, null, null);

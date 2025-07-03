@@ -85,19 +85,17 @@ export const useAuthStore = defineStore('auth', () => {
     }
     async function handleRefreshToken() {
         try {
+            if (!refreshToken.value) return false;
+
             const data = await http('/api/auth/refresh', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ refreshToken: refreshToken.value })
             });
+
             setAuthData(data);
-            console.log("Токены успешно обновлены.");
             return true;
         } catch (error) {
-            // Наша http-обертка сама обработает разлогин в случае ошибки 401/403.
-            // Здесь мы просто ловим ошибку, чтобы вернуть false и не дать
-            // websocket.js пытаться переподключиться бесконечно.
-            console.error("Не удалось обновить токен:", error.message);
             return false;
         }
     }

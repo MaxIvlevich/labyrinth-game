@@ -1,18 +1,23 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watch  } from 'vue';
 import { useGameStore } from '@/stores/game.js';
 import { useAuthStore } from '@/stores/auth.js';
-const authStore = useAuthStore();
+import AppModal from '@/components/shared/AppModal.vue';
+import GameBoard from '@/components/game/GameBoard.vue';
 
+
+const authStore = useAuthStore();
 const gameStore = useGameStore();
 const isLeaveModalVisible = ref(false);
-function handleLeaveRoom() {
-  gameStore.leaveRoom();
-}
+
+
+watch(isLeaveModalVisible, (newValue) => {
+  console.log(`isLeaveModalVisible изменилось на: ${newValue}`);
+  console.trace(); // Покажет, кто вызвал изменение
+});
 function confirmLeaveRoom() {
 
   gameStore.leaveRoom();
- ы
 }
 
 function getAvatarColor(avatarType) {
@@ -52,11 +57,9 @@ function getAvatarColor(avatarType) {
             </div>
           </div>
         </div>
-
         <!-- Центральная колонка (доска) -->
         <div class="game-board-wrapper">
-          <!-- Сюда мы скоро добавим <GameBoard /> -->
-          <p>(Игровое поле)</p>
+          <GameBoard />
         </div>
 
         <!-- Правая панель -->

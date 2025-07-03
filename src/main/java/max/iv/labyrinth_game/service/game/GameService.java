@@ -16,6 +16,7 @@ import max.iv.labyrinth_game.service.game.actions.MoveActionContext;
 import max.iv.labyrinth_game.service.game.actions.ShiftActionContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -427,20 +428,6 @@ public class GameService {
 
         return false;
     }
-
-    public void recalculateTurnAfterPlayerRemoval(GameRoom room, UUID playerId) {
-
-        if (room.getPlayers().isEmpty()) {
-            // Если игроков не осталось, игра закончится в checkAndHandleGameEndConditions
-            return;
-        }
-        // Находим первого игрока в обновленном списке и делаем его текущим.
-        Player nextPlayer = room.getPlayers().get(0);
-        room.setCurrentPlayerIndex(0);
-        room.setGamePhase(GamePhase.PLAYER_SHIFT);
-        log.info("Player was removed. Turn is reset and passed to {}.", nextPlayer.getName());
-    }
-
     private record Point(int x, int y) {
     }
 }

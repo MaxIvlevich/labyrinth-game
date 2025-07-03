@@ -79,22 +79,20 @@ export function initializeWebSocket() {
         console.log(`Соединение WebSocket закрыто. Код: ${event.code}`);
         socket = null;
         isConnecting = false;
-        if (connectionRetries >= MAX_RETRIES) {
-            console.error("Достигнут лимит попыток переподключения. Выход из системы.");
-            const authStore = useAuthStore();
-            authStore.logout();
-            connectionRetries = 0;
+
+        if (event.code === 1000) {
             return;
         }
-        connectionRetries++;
-        console.log(`Попытка переподключения №${connectionRetries} через ${RETRY_DELAY_MS / 1000} сек...`);
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-
         const authStore = useAuthStore();
-        await authStore.handleRefreshToken();
+        if (authStore.isAuthenticated) {
+            console.log(`Нештатное закрытие. Попытка переподключения через ${RETRY_DELAY_MS / 1000} сек...`);
 
-        // 5. Просто пытаемся подключиться снова.
-        initializeWebSocket();
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+            await authStore.handleRefreshToken();
+            if (useAuthStore().isAuthenticated) {
+                initializeWebSocket();
+            }
+        }
     };
 }
 export function closeWebSocket() {

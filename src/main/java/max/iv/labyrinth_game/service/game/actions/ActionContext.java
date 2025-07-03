@@ -14,7 +14,4 @@ public abstract class ActionContext {
         this.room = room;
         this.playerId = playerId;
     }
-    public Player getCurrentPlayer() {
-        return room.getCurrentPlayer();
-    }
 }
