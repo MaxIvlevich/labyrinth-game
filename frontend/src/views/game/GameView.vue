@@ -30,7 +30,7 @@ function getAvatarColor(avatarType) {
   <!-- Показываем интерфейс, только если есть данные об игре -->
     <div v-if="gameStore.game" class="game-layout">
       <div class="game-header">
-        <h2>{{ gameStore.game.roomName || `Комната #${gameStore.game.roomId.substring(0, 6)}` }}</h2>
+        <h2>{{ gameStore.game.roomName || `Комната #${gameStore.game.roomId?.substring(0, 6) || '???'}` }}</h2>
         <!-- Кнопка теперь не вызывает выход напрямую, а показывает модальное окно -->
         <button @click="isLeaveModalVisible = true" class="btn-secondary">Выйти в лобби</button>
       </div>
@@ -59,7 +59,7 @@ function getAvatarColor(avatarType) {
         </div>
         <!-- Центральная колонка (доска) -->
         <div class="game-board-wrapper">
-          <GameBoard />
+          <GameBoard :key="gameStore.game.currentPhase" />
         </div>
 
         <!-- Правая панель -->

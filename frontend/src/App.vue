@@ -25,6 +25,20 @@ watch(
       }
     }
 );
+watch(
+    () => gameStore.view,
+    (newView, oldView) => {
+      console.log(
+          `%cVIEW CHANGED: с '${oldView}' на '${newView}'`,
+          'color: blue; font-weight: bold;'
+      );
+      // Если view неожиданно стал 'game', мы хотим знать, почему
+      if (newView === 'game') {
+        console.log('Данные gameStore.game в этот момент:', JSON.parse(JSON.stringify(gameStore.game)));
+        console.trace(); // Покажет нам стек вызовов
+      }
+    }
+);
 
 onMounted(() => {
   if (authStore.isAuthenticated) {

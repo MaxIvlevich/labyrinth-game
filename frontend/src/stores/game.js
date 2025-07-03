@@ -17,9 +17,11 @@ export const useGameStore = defineStore('game', () => {
 
     // Действия, которые ВЫЗЫВАЕТ WebSocket сервис
     function handleRoomListUpdate(data) {
-        rooms.value = data.rooms;
-        game.value = null; // Убедимся, что данных старой игры не осталось
+        rooms.value = data.rooms || [];
         view.value = 'lobby';
+        if (game.value !== null) {
+            game.value = null;
+        }
         localStorage.removeItem('currentRoomId');
     }
 
