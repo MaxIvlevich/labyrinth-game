@@ -4,6 +4,7 @@ import { useGameStore } from '@/stores/game.js';
 import { useAuthStore } from '@/stores/auth.js';
 import AppModal from '@/components/shared/AppModal.vue';
 import GameBoard from '@/components/game/GameBoard.vue';
+import TilePiece from '@/components/game/TilePiece.vue';
 
 
 const authStore = useAuthStore();
@@ -24,6 +25,16 @@ function getAvatarColor(avatarType) {
   const colors = { 'KNIGHT': '#8a94a1', 'MAGE': '#7a5b9e', 'ARCHER': '#5a8d5c', 'DWARF': '#c56b3e' };
   return colors[avatarType] || '#6c757d';
 }
+
+function formattedPhase(phase) {
+  const phases = {
+    'WAITING_FOR_PLAYERS': 'Ожидание игроков',
+    'PLAYER_SHIFT': 'Сдвиг лабиринта',
+    'PLAYER_MOVE': 'Перемещение фишки',
+    'GAME_OVER': 'Игра окончена'
+  };
+  return phases[phase] || phase; // Если фаза неизвестна, покажем ее как есть
+}
 </script>
 
 <template>
@@ -38,6 +49,18 @@ function getAvatarColor(avatarType) {
       <div class="game-container">
         <!-- Левая панель с игроками -->
         <div class="game-panel left-panel">
+          <div class="info-block">
+            <h4>Информация о ходе</h4>
+            <div class="info-item">
+              <span class="info-label">Фаза игры:</span>
+              <!-- Мы будем показывать понятный текст вместо системных названий -->
+              <span class="info-value">{{ formattedPhase(gameStore.game.currentPhase) }}</span>
+            </div>
+            <div class="info-item" v-if="gameStore.game.currentPlayer">
+              <span class="info-label">Сейчас ходит:</span>
+              <span class="info-value">{{ gameStore.game.currentPlayer.name }}</span>
+            </div>
+          </div>
           <div class="players-panel">
             <h4>Игроки</h4>
             <div class="player-list">
@@ -56,10 +79,25 @@ function getAvatarColor(avatarType) {
               </div>
             </div>
           </div>
+          <div class="tile-panel">
+            <h4>Лишний тайл</h4>
+            <div class="extra-tile-preview" v-if="gameStore.game.board?.extraTile">
+              <TilePiece :tile="gameStore.game.board?.extraTile" />
+            </div>
+            <div v-else class="extra-tile-placeholder">
+            </div>
+          </div>
+
+
         </div>
         <!-- Центральная колонка (доска) -->
         <div class="game-board-wrapper">
-          <GameBoard :key="gameStore.game.currentPhase" />
+          <GameBoard v-if="gameStore.game.board" />
+          <!-- Иначе показываем заглушку ожидания -->
+          <div v-else class="waiting-for-start">
+            <h3>Ожидание игроков...</h3>
+            <p>Игра начнется, как только наберется необходимое количество участников.</p>
+          </div>
         </div>
 
         <!-- Правая панель -->
@@ -164,4 +202,61 @@ function getAvatarColor(avatarType) {
   background-color: #f0f0f0;
   cursor: pointer;
 }
+  .tile-panel {
+    border-top: 1px solid #ddd;
+    padding-top: 15px;
+  }
+  .extra-tile-preview {
+    width: 60px; /* Размер, равный --cell-size из GameBoard */
+    height: 60px;
+    margin: 10px auto; /* Центрируем контейнер */
+    border: 2px dashed #ccc;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .extra-tile-placeholder {
+    text-align: center;
+    color: #999;
+    margin-top: 10px;
+  }
+  .waiting-for-start {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    color: #6c757d;
+    width: 100%;
+    min-height: 300px;
+  }
+  .info-block {
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 8px;
+  }
+  .info-block h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1.1em;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+  }
+  .info-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 0.95em;
+  }
+  .info-label {
+    font-weight: bold;
+    color: #333;
+  }
+  .info-value {
+    color: #666;
+  }
 </style>

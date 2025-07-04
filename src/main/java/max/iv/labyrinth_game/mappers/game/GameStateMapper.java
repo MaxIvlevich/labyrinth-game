@@ -74,9 +74,9 @@ public class GameStateMapper {
         BoardDTO boardDTO = boardMapper.toDto(room.getBoard());
 
         // Определяем ID текущего игрока
-        UUID currentPlayerId = null;
+        PlayerDTO currentplayer = null;
         if (room.getCurrentPlayer() != null) {
-            currentPlayerId = room.getCurrentPlayer().getId();
+            currentplayer = playerMapper.toDto(room.getCurrentPlayer());
         }
 
         UUID winnerId = null;
@@ -84,7 +84,7 @@ public class GameStateMapper {
         if (room.getGamePhase() == GamePhase.GAME_OVER && room.getWinner() != null) {
             winnerId = room.getWinner().getId(); // Предполагаем, что Player.getId() возвращает UUID
             winnerName = room.getWinner().getName();
-            currentPlayerId = null; // В конце игры нет "текущего" игрока для хода
+            currentplayer = null; // В конце игры нет "текущего" игрока для хода
         }
 
         return new GameStateUpdateDTO(
@@ -92,7 +92,7 @@ public class GameStateMapper {
                 room.getRoomId(),
                 room.getRoomName(),
                 room.getGamePhase(),
-                currentPlayerId,
+                currentplayer,
                 playerDTOs,
                 boardDTO,
                 winnerId,

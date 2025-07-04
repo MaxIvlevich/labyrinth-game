@@ -1,29 +1,32 @@
 <script setup>
-import { computed } from 'vue';
-import { useGameStore } from '@/stores/game.js';
+import {computed} from 'vue';
+import {useGameStore} from '@/stores/game.js';
 import BoardCell from '@/components/game/BoardCell.vue';
 import PlayerPiece from '@/components/game/PlayerPiece.vue';
 
 const gameStore = useGameStore();
 
-const board = gameStore.game.board;
-const players = gameStore.game.players;
+const board = computed(() => gameStore.game?.board);
+const players = computed(() => gameStore.game?.players || []);
 
 const boardStyles = computed(() => {
-  if (!board) return {};
+  if (!board.value) return {};
   return {
-    '--board-size': board.size,
+    '--board-size': board.value.size,
     '--cell-size': '60px'
   };
 });
 
-const flatGrid = computed(() => board?.grid.flat() || []);
+const flatGrid = computed(() => {
+  // Проверяем `board.value`
+  return board.value?.grid.flat() || [];
+});
 
 const groupedPlayers = computed(() => {
   if (!players) return [];
 
   // Создаем объект, где ключ - "x-y", а значение - массив игроков на этой клетке
-  const playersByPosition = players.reduce((acc, player) => {
+  const playersByPosition = players.value.reduce((acc, player) => {
     const key = `${player.currentX}-${player.currentY}`;
     if (!acc[key]) {
       acc[key] = [];
