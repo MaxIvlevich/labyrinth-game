@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch  } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useGameStore } from '@/stores/game.js';
 import { useAuthStore } from '@/stores/auth.js';
 import AppModal from '@/components/shared/AppModal.vue';
@@ -10,16 +10,27 @@ import TilePiece from '@/components/game/TilePiece.vue';
 const authStore = useAuthStore();
 const gameStore = useGameStore();
 const isLeaveModalVisible = ref(false);
+const localExtraTile = ref(null);
 
-
-watch(isLeaveModalVisible, (newValue) => {
-  console.log(`isLeaveModalVisible изменилось на: ${newValue}`);
-  console.trace(); // Покажет, кто вызвал изменение
-});
 function confirmLeaveRoom() {
 
   gameStore.leaveRoom();
 }
+watch(() => gameStore.game?.board?.extraTile, (newServerTile) => {
+  if (newServerTile) {
+    // Мы создаем копию, чтобы не менять данные в store напрямую
+    localExtraTile.value = { ...newServerTile };
+    console.log('Локальный extraTile обновлен:', localExtraTile.value);
+  }
+}, { immediate: true }); // immediate: true заставит watch сработать сразу при загрузке компонента
+
+// 4. Функция для вращения НАШЕЙ ЛОКАЛЬНОЙ КОПИИ тайла
+function rotateExtraTile() {
+  if (!localExtraTile.value) return;
+  // Увеличиваем ориентацию на 1 и берем остаток от деления на 4 (0, 1, 2, 3, 0, 1...)
+  localExtraTile.value.orientation = (localExtraTile.value.orientation + 1) % 4;
+}
+
 
 function getAvatarColor(avatarType) {
   const colors = { 'KNIGHT': '#8a94a1', 'MAGE': '#7a5b9e', 'ARCHER': '#5a8d5c', 'DWARF': '#c56b3e' };
@@ -35,11 +46,13 @@ function formattedPhase(phase) {
   };
   return phases[phase] || phase; // Если фаза неизвестна, покажем ее как есть
 }
+
 </script>
 
 <template>
   <!-- Показываем интерфейс, только если есть данные об игре -->
     <div v-if="gameStore.game" class="game-layout">
+
       <div class="game-header">
         <h2>{{ gameStore.game.roomName || `Комната #${gameStore.game.roomId?.substring(0, 6) || '???'}` }}</h2>
         <!-- Кнопка теперь не вызывает выход напрямую, а показывает модальное окно -->
@@ -81,14 +94,18 @@ function formattedPhase(phase) {
           </div>
           <div class="tile-panel">
             <h4>Лишний тайл</h4>
-            <div class="extra-tile-preview" v-if="gameStore.game.board?.extraTile">
-              <TilePiece :tile="gameStore.game.board?.extraTile" />
+            <div
+                class="extra-tile-preview"
+                v-if="localExtraTile"
+                @click="rotateExtraTile"
+                title="Нажмите, чтобы повернуть"
+            >
+              <TilePiece :tile="localExtraTile" />
             </div>
             <div v-else class="extra-tile-placeholder">
+              (Пусто)
             </div>
           </div>
-
-
         </div>
         <!-- Центральная колонка (доска) -->
         <div class="game-board-wrapper">
@@ -215,6 +232,11 @@ function formattedPhase(phase) {
     display: flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s ease-out;
+  }
+  .extra-tile-preview:hover {
+    transform: scale(1.05); /* Немного увеличиваем при наведении */
   }
   .extra-tile-placeholder {
     text-align: center;

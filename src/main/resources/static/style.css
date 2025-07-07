@@ -685,7 +685,7 @@ h1 {
     transition: background-color 0.2s, transform 0.2s;
 
     /* Стили для иконки-стрелки */
-    background-image: url('/images/arrow.svg');
+    background-image: url('/frontend/public/images/ui/arrow.svg');
     background-size: 60%;
     background-repeat: no-repeat;
     background-position: center;
