@@ -1,6 +1,6 @@
 <script setup>
-import {computed} from 'vue';
-import {useGameStore} from '@/stores/game.js';
+import { ref, computed } from 'vue';
+import { useGameStore } from '@/stores/game.js';
 import { useAuthStore } from '@/stores/auth.js';
 import BoardCell from '@/components/game/BoardCell.vue';
 import PlayerPiece from '@/components/game/PlayerPiece.vue';
@@ -9,201 +9,203 @@ import DropZone from '@/components/game/DropZone.vue';
 const gameStore = useGameStore();
 const authStore = useAuthStore();
 
+// --- КОНСТАНТЫ И ЛОКАЛЬНОЕ СОСТОЯНИЕ ---
+const props = defineProps({
+  pendingShift: { type: Object, default: null },
+  cellSize: { type: Number, required: true }
+});
+
+const emit = defineEmits(['drop-tile', 'rotate-tile']);
+
+// --- ВЫЧИСЛЯЕМЫЕ СВОЙСТВА ДЛЯ ДАННЫХ ---
 const board = computed(() => gameStore.game?.board);
 const players = computed(() => gameStore.game?.players || []);
 
-const boardStyles = computed(() => {
- if (!board.value) return {};
- return {
-   '--board-size': board.value.size,
-   '--cell-size': '60px'
- };
-});
-
-const flatGrid = computed(() => {
-// Проверяем `board.value`
-  return board.value?.grid.flat() || [];
-});
-
-
-const groupedPlayers = computed(() => {
-if (!players) return [];
-
-// Создаем объект, где ключ - "x-y", а значение - массив игроков на этой клетке
-const playersByPosition = players.value.reduce((acc, player) => {
-  const key = `${player.currentX}-${player.currentY}`;
-  if (!acc[key]) {
-    acc[key] = [];
-  }
-  acc[key].push(player);
-  return acc;
-}, {});
-
- // Преобразуем объект обратно в плоский список, но с дополнительной информацией
- return Object.values(playersByPosition).flatMap(group =>
-     group.map((player, index) => ({
-       ...player, // Копируем все свойства игрока
-       groupSize: group.length, // Сколько всего игроков в этой ячейке
-       indexInGroup: index, // Порядковый номер этого игрока в группе (0, 1, 2...)
-     }))
- );
-});
-console.log('--- GameBoard.vue SCRIPT SETUP EXECUTED ---');
-
 const isMyTurnToShift = computed(() => {
   const game = gameStore.game;
-  const myId = authStore.userId;
-
-  // --- ДЕТАЛЬНЫЙ ОТЛАДОЧНЫЙ ЛОГ ---
-  console.groupCollapsed('Проверка isMyTurnToShift'); // Создаем сворачиваемую группу в консоли
-  console.log('game существует?', !!game);
-  console.log('myId существует?', !!myId);
-  if (game) {
-    console.log('game.currentPhase =', game.currentPhase);
-    console.log('game.currentPlayer существует?', !!game.currentPlayer);
-    if(game.currentPlayer){
-      console.log('game.currentPlayer.id =', game.currentPlayer.id);
-    }
-  }
-  console.log('authStore.userId =', myId);
-
-  // --- Сами проверки ---
-  const isShiftPhase = game?.currentPhase === 'PLAYER_SHIFT';
-  const isMyPlayerId = game?.currentPlayer?.id === myId;
-  const result = isShiftPhase && isMyPlayerId;
-
-  console.log('isShiftPhase:', isShiftPhase);
-  console.log('isMyPlayerId:', isMyPlayerId);
-  console.log('Итоговый результат:', result);
-  console.groupEnd(); // Закрываем группу
+  return game?.currentPhase === 'PLAYER_SHIFT' && game?.currentPlayer?.id === authStore.userId;
 });
 
-// 3. Переименовываем computed для данных
-const dropZonesData = computed(() => {
+// Готовим данные для рендеринга доски
+const flatGrid = computed(() => board.value?.grid.flat() || []);
+const groupedPlayers = computed(() => {
+  const playersByPosition = players.value.reduce((acc, player) => {
+    const key = `${player.currentX}-${player.currentY}`;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(player);
+    return acc;
+  }, {});
+  return Object.values(playersByPosition).flatMap(group =>
+      group.map((player, index) => ({ ...player, groupSize: group.length, indexInGroup: index }))
+  );
+});
 
-  console.log('Вычисление dropZonesData...');
-  console.log('board.value существует?', !!board.value);
-  if (board.value) {
-    console.log('board.value.size =', board.value.size);
-  }
+// Готовим данные для рендеринга зон вставки
+const dropZonesData = computed(() => {
   if (!board.value) return [];
   const zones = [];
   const size = board.value.size;
-
   for (let i = 1; i < size; i += 2) {
     zones.push({ key: `t-${i}`, positionClass: 'top', index: i, direction: 'SOUTH' });
     zones.push({ key: `b-${i}`, positionClass: 'bottom', index: i, direction: 'NORTH' });
     zones.push({ key: `l-${i}`, positionClass: 'left', index: i, direction: 'EAST' });
     zones.push({ key: `r-${i}`, positionClass: 'right', index: i, direction: 'WEST' });
   }
-  console.log('Итоговый массив зон:', zones);
   return zones;
 });
-function handleTileDrop(shiftInfo) {
-  console.log('Тайл брошен в зону:', shiftInfo);
-  // TODO: Сохранить этот "предполагаемый ход" в локальном состоянии
+
+// --- СТИЛИ И ОБРАБОТЧИКИ ---
+
+// Стиль для главного контейнера, задающий размер всей сетки 9x9
+const fullAreaStyle = computed(() => {
+  if (!board.value) return {};
+  const fullSize = board.value.size + 2;
+  return {
+    '--full-size': fullSize,
+    '--board-size': board.value.size,
+    '--cell-size': `${props.cellSize}px`,
+  };
+});
+
+// Функция для вычисления grid-area каждой зоны
+function getZoneGridArea(zone) {
+  const boardSize = board.value.size;
+  const gridIndex = zone.index + 1;
+  const startLine = gridIndex + 1;
+  const endLine = gridIndex + 2;
+
+  switch (zone.positionClass) {
+      // grid-area: row-start / col-start / row-end / col-end
+    case 'top':    return { gridArea: `1 / ${startLine} / 2 / ${endLine}` };
+    case 'bottom': return { gridArea: `${boardSize + 2} / ${startLine} / ${boardSize + 3} / ${endLine}` };
+    case 'left':   return { gridArea: `${startLine} / 1 / ${endLine} / 2` };
+    case 'right':  return { gridArea: `${startLine} / ${boardSize + 2} / ${endLine} / ${boardSize + 3}` };
+    default: return {};
+  }
 }
 
+// Обработчик "бросания" тайла
+function handleTileDrop(shiftInfo, event) {
+  event.preventDefault();
+  const tileData = JSON.parse(event.dataTransfer.getData('application/json'));
+  emit('drop-tile', shiftInfo, tileData);
+}
 
+// Обработчик вращения тайла в зоне
+function handleRotatePendingTile(shiftInfo) {
+  emit('rotate-tile', shiftInfo);
+}
+
+function getPlayerAtBase(x, y) {
+  return players.value.find(p => p.baseX === x && p.baseY === y);
+}
+
+const previewGrid = computed(() => {
+  const shift = props.pendingShift;
+  const originalGrid = board.value?.grid;
+  if (!shift || !originalGrid) return originalGrid?.flat() || [];
+
+  const newGrid = structuredClone(originalGrid);
+  const { direction, index } = shift.shiftInfo;
+  const size = board.value.size;
+  let fallenTile;
+  switch (direction) {
+    case 'SOUTH': fallenTile = newGrid[size-1][index].tile; for(let y=size-1;y>0;y--)newGrid[y][index].tile=newGrid[y-1][index].tile; newGrid[0][index].tile = shift.tile; break;
+    case 'NORTH': fallenTile = newGrid[0][index].tile; for(let y=0;y<size-1;y++)newGrid[y][index].tile=newGrid[y+1][index].tile; newGrid[size-1][index].tile = shift.tile; break;
+    case 'EAST': fallenTile = newGrid[index][size-1].tile; for(let x=size-1;x>0;x--)newGrid[index][x].tile=newGrid[index][x-1].tile; newGrid[index][0].tile = shift.tile; break;
+    case 'WEST': fallenTile = newGrid[index][0].tile; for(let x=0;x<size-1;x++)newGrid[index][x].tile=newGrid[index][x+1].tile; newGrid[index][size-1].tile = shift.tile; break;
+  }
+  return newGrid.flat();
+});
 </script>
 
 <template>
+  <!-- Главный контейнер-сетка (например, 9x9) -->
+  <div v-if="board" class="full-board-area" :style="fullAreaStyle">
 
-  <!-- Основной контейнер, который задает размеры и позиционирование -->
-  <div v-if="board" class="game-board-container" :style="boardStyles">
-    <!-- Слой 1: Просто сетка, пока без дочерних компонентов -->
-    <div class="board-grid">
+    <!-- 1. Сама доска (7x7), размещенная в центре сетки -->
+    <div class="game-board">
       <BoardCell
-          v-for="cell in flatGrid"
+          v-for="cell in previewGrid"
           :key="`cell-${cell.x}-${cell.y}`"
           :cell="cell"
+          :base-owner="getPlayerAtBase(cell.x, cell.y)"
       />
     </div>
+
+    <!-- 2. Оверлей с фишками, размещенный точно над доской -->
     <div class="pieces-overlay">
       <PlayerPiece
           v-for="player in groupedPlayers"
           :key="`player-${player.id}`"
           :player="player"
-          :cell-size="60"
+          :cell-size="props.cellSize"
       />
     </div>
 
-    <div v-if="isMyTurnToShift" class="drop-zones-container">
-      <div v-for="zone in dropZonesData"
-           :key="zone.key"
-           class="drop-zone-wrapper"
-           :class="zone.position"
-           :style="{ '--index': zone.index }"
+    <!-- 3. Зоны вставки, размещенные по краям сетки (видимы, если наш ход) -->
+    <template v-if="isMyTurnToShift">
+      <div
+          v-for="zone in dropZonesData"
+          :key="zone.key"
+          class="drop-zone-wrapper"
+          :style="getZoneGridArea(zone)"
       >
-        <!-- Если DropZone.vue еще не создан, можно временно поставить заглушку -->
-        <div style="width:100%; height:100%; background: lime;"></div>
-        <!-- <DropZone :shift-info="zone" @drop-tile="handleTileDrop" /> -->
+        <DropZone
+            :shift-info="zone"
+            :tile="pendingShift?.shiftInfo.key === zone.key ? pendingShift.tile : null"
+            @drop-tile="handleTileDrop"
+            @rotate-tile="handleRotatePendingTile"
+        />
       </div>
-    </div>
-
+    </template>
 
   </div>
-  <div v-else>
+  <div v-else class="loading-placeholder">
     <p>Ожидание данных о доске...</p>
   </div>
 </template>
 
 <style scoped>
-
-
-/* Контейнер, который держит все слои вместе */
-.game-board-container {
-  position: relative;
-  /* Задаем размеры контейнера на основе CSS переменных */
-  width: calc(var(--board-size) * var(--cell-size));
-  height: calc(var(--board-size) * var(--cell-size));
+/* Главный контейнер, который является большой сеткой */
+.full-board-area {
+  display: grid;
+  grid-template-columns: repeat(var(--full-size), var(--cell-size));
+  grid-template-rows: repeat(var(--full-size), var(--cell-size));
+  justify-content: center;
+  align-content: center;
 }
 
-/* Слой с сеткой ячеек */
-.board-grid {
+/* Доска занимает центральную область большой сетки */
+.game-board {
+  grid-column: 2 / span var(--board-size);
+  grid-row: 2 / span var(--board-size);
   display: grid;
   grid-template-columns: repeat(var(--board-size), var(--cell-size));
   grid-template-rows: repeat(var(--board-size), var(--cell-size));
-  width: 100%;
-  height: 100%;
   border: 3px solid #6d4c41;
-  background-color: #a1887f;
 }
 
-/* Слой с фишками, который накладывается точно поверх сетки */
+/* Оверлей с фишками идеально накладывается на доску */
 .pieces-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  /* Этот слой не должен ловить клики, чтобы можно было кликать на ячейки под ним */
+  grid-column: 2 / span var(--board-size);
+  grid-row: 2 / span var(--board-size);
+  position: relative;
   pointer-events: none;
 }
+
+/* Обертка для зоны вставки просто занимает свою ячейку в большой сетке */
 .drop-zone-wrapper {
-  pointer-events: auto; /* А вот обертки для зон должны ловить события мыши */
-  position: absolute;
-  width: var(--cell-size);
-  height: var(--cell-size);
-  padding: 4px; /* Небольшой отступ для красоты */
+  width: 100%;
+  height: 100%;
+  padding: 5px;
+  box-sizing: border-box;
 }
 
-/* --- Позиционирование зон вставки --- */
-/* Используем calc() и CSS-переменные для элегантного позиционирования */
-.drop-zone-wrapper.top {
-  top: calc(-1 * var(--cell-size));
-  left: calc(var(--index) * var(--cell-size));
-}
-.drop-zone-wrapper.bottom {
-  bottom: calc(-1 * var(--cell-size));
-  left: calc(var(--index) * var(--cell-size));
-}
-.drop-zone-wrapper.left {
-  left: calc(-1 * var(--cell-size));
-  top: calc(var(--index) * var(--cell-size));
-}
-.drop-zone-wrapper.right {
-  right: calc(-1 * var(--cell-size));
-  top: calc(var(--index) * var(--cell-size));
+.loading-placeholder {
+  min-height: 500px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

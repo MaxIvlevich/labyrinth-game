@@ -10,25 +10,26 @@ import TilePiece from '@/components/game/TilePiece.vue';
 const authStore = useAuthStore();
 const gameStore = useGameStore();
 const isLeaveModalVisible = ref(false);
+const pendingShift = ref(null);
 const localExtraTile = ref(null);
-
+const CELL_SIZE = 85;
 function confirmLeaveRoom() {
-
   gameStore.leaveRoom();
 }
+
 watch(() => gameStore.game?.board?.extraTile, (newServerTile) => {
   if (newServerTile) {
     // Мы создаем копию, чтобы не менять данные в store напрямую
     localExtraTile.value = { ...newServerTile };
     console.log('Локальный extraTile обновлен:', localExtraTile.value);
   }
-}, { immediate: true }); // immediate: true заставит watch сработать сразу при загрузке компонента
+}, { immediate: true });
 
 // 4. Функция для вращения НАШЕЙ ЛОКАЛЬНОЙ КОПИИ тайла
 function rotateExtraTile() {
-  if (!localExtraTile.value) return;
-  // Увеличиваем ориентацию на 1 и берем остаток от деления на 4 (0, 1, 2, 3, 0, 1...)
-  localExtraTile.value.orientation = (localExtraTile.value.orientation + 1) % 4;
+  if (localExtraTile.value && !pendingShift.value) {
+    localExtraTile.value.orientation = (localExtraTile.value.orientation + 1) % 4;
+  }
 }
 
 
@@ -45,6 +46,41 @@ function formattedPhase(phase) {
     'GAME_OVER': 'Игра окончена'
   };
   return phases[phase] || phase; // Если фаза неизвестна, покажем ее как есть
+}
+function handleDragStart(event) {
+  if (!localExtraTile.value) return;
+  const data = JSON.stringify(localExtraTile.value);
+  event.dataTransfer.setData('application/json', data);
+  event.dataTransfer.effectAllowed = 'move';
+  localExtraTile.value = null;
+}
+
+function handleTileDrop(shiftInfo, droppedTile) {
+  // Если мы "бросаем" тайл из другой зоны, вернем старый на место extraTile
+  if (pendingShift.value) {
+    localExtraTile.value = pendingShift.value.tile;
+  }
+  pendingShift.value = { shiftInfo, tile: droppedTile };
+}
+
+function handleRotatePendingTile() {
+  if (pendingShift.value) {
+    const current = pendingShift.value.tile.orientation;
+    pendingShift.value.tile.orientation = (current + 1) % 4;
+  }
+}
+
+function confirmShift() {
+  if (!pendingShift.value) return;
+  const { direction, index } = pendingShift.value.shiftInfo;
+  const { orientation } = pendingShift.value.tile;
+  gameStore.shiftTile(direction, index, orientation);
+  pendingShift.value = null;
+  localExtraTile.value = null;
+}
+
+function cancelShift() {
+  pendingShift.value = null;
 }
 
 </script>
@@ -94,11 +130,16 @@ function formattedPhase(phase) {
           </div>
           <div class="tile-panel">
             <h4>Лишний тайл</h4>
+            <div v-if="localExtraTile && !pendingShift"  @dragstart="handleDragStart">
+              <TilePiece :tile="localExtraTile" />
+            </div>
             <div
                 class="extra-tile-preview"
-                v-if="localExtraTile"
+                v-if="localExtraTile && !pendingShift"
                 @click="rotateExtraTile"
                 title="Нажмите, чтобы повернуть"
+                draggable="true"
+                @dragstart="handleDragStart"
             >
               <TilePiece :tile="localExtraTile" />
             </div>
@@ -106,10 +147,18 @@ function formattedPhase(phase) {
               (Пусто)
             </div>
           </div>
+          <div v-if="pendingShift" class="confirm-turn-panel">
+            <button @click="confirmShift" class="btn-confirm">Подтвердить сдвиг</button>
+            <button @click="cancelShift" class="btn-cancel">Отмена</button>
+          </div>
         </div>
         <!-- Центральная колонка (доска) -->
         <div class="game-board-wrapper">
-          <GameBoard v-if="gameStore.game.board" />
+          <GameBoard  v-if="gameStore.game.board"
+                      :pending-shift="pendingShift"
+                      :cell-size="CELL_SIZE"
+                      @drop-tile="handleTileDrop"
+                      @rotate-tile="handleRotatePendingTile" />
           <!-- Иначе показываем заглушку ожидания -->
           <div v-else class="waiting-for-start">
             <h3>Ожидание игроков...</h3>
@@ -172,8 +221,8 @@ function formattedPhase(phase) {
 }
 .game-container {
   display: grid;
-  grid-template-columns: 280px 1fr 280px;
-  gap: 25px;
+  grid-template-columns: 280px minmax(0, 1fr) 280px;
+  gap: 30px; /* Увеличим отступ */
   align-items: flex-start;
   flex-grow: 1; /* Контейнер игры занимает все оставшееся место */
 }
@@ -195,7 +244,8 @@ function formattedPhase(phase) {
 .game-board-wrapper {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
+  padding-top: 40px;
 }
 .loading-state {
   text-align: center;

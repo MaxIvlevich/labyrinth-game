@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { sendMessage } from '@/api/websocket.js';
-import ShiftButton from '@/components/game/ShiftButton.vue';
+
 
 export const useGameStore = defineStore('game', () => {
     // === СОСТОЯНИЕ (State) ===
@@ -55,16 +55,21 @@ export const useGameStore = defineStore('game', () => {
     }
 
     function leaveRoom() {
-        sendMessage({ type: 'LEAVE_ROOM' });
-        // Состояние изменится, когда сервер пришлет ROOM_LIST_UPDATE
+        game.value = null;
+        view.value = 'lobby';
+        localStorage.removeItem('currentRoomId');
+        rooms.value = []; // Чистим комнаты, чтобы не было "призраков"
+        sendMessage({ type: 'GET_ROOM_LIST_REQUEST' });
     }
-    function shiftTile(shiftDirection, shiftIndex) {
+    function shiftTile(shiftDirection, shiftIndex, orientation) {
         if (!game.value) return;
         sendMessage({
             type: 'PLAYER_ACTION_SHIFT',
             roomId: game.value.roomId,
             shiftDirection,
-            shiftIndex
+            shiftIndex,
+            newOrientation: orientation
+
         });
     }
 
