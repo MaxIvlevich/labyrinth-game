@@ -1,20 +1,27 @@
 <script setup>
 import { ref } from 'vue';
-
+import TilePiece from './TilePiece.vue';
 const props = defineProps({
   // Данные о том, где находится эта зона
-  shiftInfo: { type: Object, required: true }
+  shiftInfo: { type: Object, required: true },
+  tile: { type: Object, default: null }
 });
 
-const emit = defineEmits(['drop-tile']);
+const emit = defineEmits(['drop-tile', 'rotate-tile']);
 
+function onTileDragStart(event) {
+  if (!props.tile) return;
+  // Делаем то же самое, что и в GameView: прикрепляем данные тайла
+  event.dataTransfer.setData('application/json', JSON.stringify(props.tile));
+  event.dataTransfer.effectAllowed = 'move';
+  // Сообщаем родителю, что мы "взяли" тайл из этой конкретной зоны
+  emit('tile-drag-start', props.shiftInfo);
+}
 // Локальное состояние для подсветки
 const isDragOver = ref(false);
 
 function onDrop(event) {
-  event.preventDefault(); // Обязательно для drop-события
   isDragOver.value = false;
-  // Сообщаем родителю, что сюда "бросили" тайл, и передаем инфо о зоне
   emit('drop-tile', props.shiftInfo, event);
 }
 
@@ -35,8 +42,14 @@ function onDragLeave() {
       @drop="onDrop"
       @dragover.prevent="isDragOver = true"
       @dragleave="onDragLeave"
+      @click="$emit('rotate-tile', shiftInfo)"
   >
-
+    <TilePiece
+        v-if="tile"
+        :tile="tile"
+        draggable="true"
+    @dragstart.stop="onTileDragStart"
+    />
   </div>
 </template>
 
@@ -45,13 +58,17 @@ function onDragLeave() {
   width: 100%;
   height: 100%;
   border-radius: 8px;
-  transition: all 0.2s ease;
-  background-color: rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease-out;
+  background-color: rgba(0, 0, 0, 0.15);
   border: 2px dashed rgba(255, 255, 255, 0.4);
-  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+
 .drop-zone.is-drag-over {
   background-color: rgba(144, 238, 144, 0.4);
+  border-style: solid;
   transform: scale(1.05);
 }
 </style>

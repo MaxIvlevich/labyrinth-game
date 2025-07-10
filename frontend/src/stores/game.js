@@ -55,6 +55,7 @@ export const useGameStore = defineStore('game', () => {
     }
 
     function leaveRoom() {
+        sendMessage({ type: 'LEAVE_ROOM' });
         game.value = null;
         view.value = 'lobby';
         localStorage.removeItem('currentRoomId');

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { computed, toRaw } from 'vue';
 import { useGameStore } from '@/stores/game.js';
 import { useAuthStore } from '@/stores/auth.js';
 import BoardCell from '@/components/game/BoardCell.vue';
@@ -15,7 +15,7 @@ const props = defineProps({
   cellSize: { type: Number, required: true }
 });
 
-const emit = defineEmits(['drop-tile', 'rotate-tile']);
+const emit = defineEmits(['drop-tile', 'rotate-tile', 'tile-drag-start']);
 
 // --- ВЫЧИСЛЯЕМЫЕ СВОЙСТВА ДЛЯ ДАННЫХ ---
 const board = computed(() => gameStore.game?.board);
@@ -105,7 +105,8 @@ const previewGrid = computed(() => {
   const originalGrid = board.value?.grid;
   if (!shift || !originalGrid) return originalGrid?.flat() || [];
 
-  const newGrid = structuredClone(originalGrid);
+  const rawGrid = toRaw(originalGrid);
+  const newGrid = structuredClone(rawGrid);
   const { direction, index } = shift.shiftInfo;
   const size = board.value.size;
   let fallenTile;
@@ -115,8 +116,15 @@ const previewGrid = computed(() => {
     case 'EAST': fallenTile = newGrid[index][size-1].tile; for(let x=size-1;x>0;x--)newGrid[index][x].tile=newGrid[index][x-1].tile; newGrid[index][0].tile = shift.tile; break;
     case 'WEST': fallenTile = newGrid[index][0].tile; for(let x=0;x<size-1;x++)newGrid[index][x].tile=newGrid[index][x+1].tile; newGrid[index][size-1].tile = shift.tile; break;
   }
-  return newGrid.flat();
+  return board.value?.grid.flat() || [];
+  //return newGrid.flat();
 });
+
+function handlePendingTileDragStart(shiftInfo) {
+  if (props.pendingShift?.shiftInfo.key === shiftInfo.key) {
+    emit('tile-drag-start');
+  }
+}
 </script>
 
 <template>
@@ -156,6 +164,7 @@ const previewGrid = computed(() => {
             :tile="pendingShift?.shiftInfo.key === zone.key ? pendingShift.tile : null"
             @drop-tile="handleTileDrop"
             @rotate-tile="handleRotatePendingTile"
+            @tile-drag-start="handlePendingTileDragStart"
         />
       </div>
     </template>

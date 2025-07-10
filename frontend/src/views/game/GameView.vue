@@ -13,7 +13,9 @@ const isLeaveModalVisible = ref(false);
 const pendingShift = ref(null);
 const localExtraTile = ref(null);
 const CELL_SIZE = 85;
+const isDraggingTile = ref(false);
 function confirmLeaveRoom() {
+  console.log("--- КЛИК: 'Да, покинуть'. Вызываю gameStore.leaveRoom() ---");
   gameStore.leaveRoom();
 }
 
@@ -49,17 +51,15 @@ function formattedPhase(phase) {
 }
 function handleDragStart(event) {
   if (!localExtraTile.value) return;
-  const data = JSON.stringify(localExtraTile.value);
-  event.dataTransfer.setData('application/json', data);
+  isDraggingTile.value = true; // Устанавливаем флаг
+  event.dataTransfer.setData('application/json', JSON.stringify(localExtraTile.value));
   event.dataTransfer.effectAllowed = 'move';
-  localExtraTile.value = null;
+}
+function handleDragEnd() {
+  isDraggingTile.value = false; // Сбрасываем флаг
 }
 
 function handleTileDrop(shiftInfo, droppedTile) {
-  // Если мы "бросаем" тайл из другой зоны, вернем старый на место extraTile
-  if (pendingShift.value) {
-    localExtraTile.value = pendingShift.value.tile;
-  }
   pendingShift.value = { shiftInfo, tile: droppedTile };
 }
 
@@ -135,11 +135,13 @@ function cancelShift() {
             </div>
             <div
                 class="extra-tile-preview"
+                :class="{ 'is-dragging': isDraggingTile }"
                 v-if="localExtraTile && !pendingShift"
                 @click="rotateExtraTile"
                 title="Нажмите, чтобы повернуть"
                 draggable="true"
                 @dragstart="handleDragStart"
+                @dragend="handleDragEnd"
             >
               <TilePiece :tile="localExtraTile" />
             </div>
@@ -158,7 +160,8 @@ function cancelShift() {
                       :pending-shift="pendingShift"
                       :cell-size="CELL_SIZE"
                       @drop-tile="handleTileDrop"
-                      @rotate-tile="handleRotatePendingTile" />
+                      @rotate-tile="handleRotatePendingTile"
+          />
           <!-- Иначе показываем заглушку ожидания -->
           <div v-else class="waiting-for-start">
             <h3>Ожидание игроков...</h3>
@@ -274,24 +277,27 @@ function cancelShift() {
     padding-top: 15px;
   }
   .extra-tile-preview {
-    width: 60px; /* Размер, равный --cell-size из GameBoard */
-    height: 60px;
-    margin: 10px auto; /* Центрируем контейнер */
+    width: 70px;
+    height: 70px;
+    margin: 10px auto;
     border: 2px dashed #ccc;
     padding: 2px;
+    box-sizing: border-box;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: transform 0.2s ease-out;
   }
   .extra-tile-preview:hover {
-    transform: scale(1.05); /* Немного увеличиваем при наведении */
+    transform: scale(1.05);
   }
   .extra-tile-placeholder {
     text-align: center;
     color: #999;
     margin-top: 10px;
+  }
+  .extra-tile-preview.is-dragging {
+    opacity: 0.4;
   }
   .waiting-for-start {
     display: flex;

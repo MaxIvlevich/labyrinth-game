@@ -38,7 +38,7 @@ const rotationClass = computed(() => {
   height: 100%;
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 100%;
+  background-size: contain;
   transition: transform 0.3s ease;
   image-rendering: pixelated;
 }
