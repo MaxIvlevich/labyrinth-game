@@ -8,6 +8,6 @@ public record RoomInfoDTO(
         int currentPlayerCount,
         int maxPlayers,
         GamePhase gamePhase // Чтобы показать, идет игра или ожидание
-        // List<String> playerNames // Опционально, если хотим показывать имена в лобби
+
 ) {
 }

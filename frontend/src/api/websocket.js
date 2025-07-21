@@ -26,7 +26,6 @@ function handleServerMessage(event) {
         case 'ERROR_MESSAGE':
             gameStore.handleError(msg);
             break;
-        // Можно добавить обработку других типов сообщений
         default:
             console.warn(`Получен необработанный тип сообщения: ${msg.type}`);
     }

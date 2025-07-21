@@ -12,6 +12,7 @@ function getAvatarColor(avatarType) {
 }
 
 const pieceStyles = computed(() => {
+  console.log(`Фишка: ${props.player.name}, Координаты: (x=${props.player.currentX}, y=${props.player.currentY})`);
   const pieceSize = props.cellSize * 0.4; // Сделаем 70%
   const offset = (props.cellSize - pieceSize) / 2;
 

@@ -23,13 +23,7 @@ public class JwtUtils {
     @Value("${app.jwt.secret}")
     private String jwtSecretString;
 
-    public JwtAuthenticationDTO generateAuthToken(String email) {
-        JwtAuthenticationDTO jwtDTO =new JwtAuthenticationDTO();
-        jwtDTO.setAccessToken(generateJwtToken(email));
-        jwtDTO.setRefreshToken(generateJwtRefreshToken(email));
-        return jwtDTO;
 
-    }
 
     public String generateJwtToken(String email) {
         Date date = Date.from(LocalDateTime.now()
@@ -44,32 +38,11 @@ public class JwtUtils {
                 .compact();
     }
 
-    public String generateJwtRefreshToken(String email) {
-        Date date = Date.from(LocalDateTime.now()
-                .plusDays(1)
-                .atZone(ZoneId.systemDefault())
-                .toInstant());
-
-        return Jwts.builder()
-                .subject(email)
-                .expiration(date)
-                .signWith(getSignInKey())
-                .compact();
-    }
     private SecretKey getSignInKey() {
         byte[] keyBytes = Decoders.BASE64.decode(jwtSecretString);
         return Keys.hmacShaKeyFor(keyBytes);
 
     }
-
-    public JwtAuthenticationDTO refreshBaseToken(String email,String refreshToken){
-        JwtAuthenticationDTO jwtDTO =new JwtAuthenticationDTO();
-        jwtDTO.setTokenType(generateJwtToken(email));
-        jwtDTO.setRefreshToken(refreshToken);
-        return jwtDTO;
-
-    }
-
     public String getEmailFromToken(String token){
         Claims claims = Jwts.parser()
                 .verifyWith(getSignInKey())

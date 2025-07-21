@@ -36,8 +36,6 @@ public class RefreshTokenService {
     public RefreshToken createRefreshToken(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Error: User not found."));
-
-        // Удаляем старый токен, если он был, чтобы у пользователя всегда был только один
         refreshTokenRepository.deleteByUser(user);
 
         RefreshToken refreshToken = new RefreshToken();
