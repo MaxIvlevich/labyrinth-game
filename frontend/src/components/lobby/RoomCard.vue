@@ -1,33 +1,24 @@
 <script setup>
 import { computed } from 'vue';
 
-// `defineProps` - это специальная функция Vue для объявления "входящих" данных.
 const props = defineProps({
   room: {
     type: Object,
     required: true
   }
 });
-
-// `defineEmits` объявляет события, которые компонент может отправлять "наверх".
-
 const emit = defineEmits(['join']);
 
-// --- Логика для отображения, взятая из вашего старого кода ---
-
-// Вычисляемое свойство для определения, заполнена ли комната или игра уже идет.
 const isDisabled = computed(() => {
   return props.room.currentPlayerCount >= props.room.maxPlayers || props.room.gamePhase !== 'WAITING_FOR_PLAYERS';
 });
 
-// Вычисляемое свойство для текста статуса
 const statusText = computed(() => {
   if (props.room.gamePhase !== 'WAITING_FOR_PLAYERS') return 'В игре';
   if (props.room.currentPlayerCount >= props.room.maxPlayers) return 'Заполнена';
   return 'Ожидание';
 });
 
-// Вычисляемое свойство для CSS-класса статуса
 const statusClass = computed(() => {
   if (props.room.gamePhase !== 'WAITING_FOR_PLAYERS') return 'status-playing';
   if (props.room.currentPlayerCount >= props.room.maxPlayers) return 'status-full';
