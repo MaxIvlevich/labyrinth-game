@@ -93,18 +93,16 @@ const dropZonesData = computed(() => {
 
 function getZoneGridArea(zone) {
   const boardSize = props.board.size;
-  const gridPos = zone.index + 1;
+  const startLine = zone.index + 1;
+  const endLine = startLine + 1;
+
   switch (zone.positionClass) {
-    case 'top':
-      return {gridArea: `1 / ${gridPos} / 2 / ${gridPos + 1}`};
-    case 'bottom':
-      return {gridArea: `${boardSize + 2} / ${gridPos} / ${boardSize + 3} / ${gridPos + 1}`};
-    case 'left':
-      return {gridArea: `${gridPos} / 1 / ${gridPos + 1} / 2`};
-    case 'right':
-      return {gridArea: `${gridPos} / ${boardSize + 2} / ${gridPos + 1} / ${boardSize + 3}`};
-    default:
-      return {};
+      // grid-area: row-start / col-start / row-end / col-end
+    case 'top':    return { gridArea: `1 / ${startLine} / 2 / ${endLine}` };
+    case 'bottom': return { gridArea: `${boardSize + 2} / ${startLine} / ${boardSize + 3} / ${endLine}` };
+    case 'left':   return { gridArea: `${startLine} / 1 / ${endLine} / 2` };
+    case 'right':  return { gridArea: `${startLine} / ${boardSize + 2} / ${endLine} / ${boardSize + 3}` };
+    default: return {};
   }
 }
 
@@ -129,6 +127,9 @@ function handlePickupTile(shiftInfo) {
     </div>
     <template v-if="isMyTurnToShift">
       <div v-for="zone in dropZonesData" :key="zone.key" class="drop-zone-wrapper" :style="getZoneGridArea(zone)">
+        <div style="position:absolute; top:0; left:0; color:red; font-size:10px; z-index: 101;">
+          {{ zone.index }}
+        </div>
         <DropZone
             :shift-info="zone"
             :tile="props.pendingShift?.shiftInfo.key === zone.key ? props.pendingShift.tile : null"
@@ -144,7 +145,18 @@ function handlePickupTile(shiftInfo) {
 </template>
 
 <style scoped>
-
+.full-board-area::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: grid;
+  grid-template-columns: repeat(var(--full-size), var(--cell-size));
+  grid-template-rows: repeat(var(--full-size), var(--cell-size));
+  border: 1px solid red;
+  pointer-events: none;
+  z-index: 100;
+}
 
 /* Главный контейнер, который является большой сеткой */
 .full-board-area {
@@ -169,6 +181,8 @@ function handlePickupTile(shiftInfo) {
 
   /* Делаем доску точкой отсчета для оверлея с фишками */
   position: relative;
+
+  z-index: 1;
 }
 
 /* Оверлей с фишками идеально накладывается на доску */
@@ -180,14 +194,17 @@ function handlePickupTile(shiftInfo) {
   width: 100%;
   height: 100%;
   pointer-events: none; /* Чтобы клики "проходили" сквозь него */
+  z-index: 2;
 }
 
 /* Обертка для зоны вставки занимает свою ячейку в большой сетке */
 .drop-zone-wrapper {
+  position: absolute;
   width: var(--cell-size);
   height: var(--cell-size);
   padding: 5px;
   box-sizing: border-box;
+  z-index: 3;
 }
 
 .loading-placeholder {

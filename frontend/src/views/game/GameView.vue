@@ -12,16 +12,18 @@ const authStore = useAuthStore();
 const CELL_SIZE = 85;
 const isLeaveModalVisible = ref(false);
 
-// --- ЛОГИКА "ЧЕРНОВИКА" ХОДА ---
 const pendingShift = ref(null);
 const localExtraTile = ref(null);
 const isDraggingTile = ref(false);
 
 watch(() => gameStore.game?.board?.extraTile, (newTile) => {
-  if (newTile && !pendingShift.value) {
-    localExtraTile.value = {...newTile};
+  if (localExtraTile.value || pendingShift.value) {
+    return;
   }
-}, {immediate: true, deep: true});
+  if (newTile) {
+    localExtraTile.value = { ...newTile };
+  }
+}, { immediate: true, deep: true });
 
 function handleDragStart(event) {
   if (!localExtraTile.value) return;

@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
@@ -22,18 +23,17 @@ public class JwtUtils {
 
     @Value("${app.jwt.secret}")
     private String jwtSecretString;
-
-
+    @Value("${app.jwt.expirationMs}")
+    private Long accessTokenDurationMs;
 
     public String generateJwtToken(String email) {
-        Date date = Date.from(LocalDateTime.now()
-                .plusHours(1)
-                .atZone(ZoneId.systemDefault())
-                .toInstant());
+        Instant now = Instant.now();
+        Instant expiryDate = now.plusMillis(accessTokenDurationMs);
 
         return Jwts.builder()
                 .subject(email)
-                .expiration(date)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(expiryDate))
                 .signWith(getSignInKey())
                 .compact();
     }
@@ -41,8 +41,8 @@ public class JwtUtils {
     private SecretKey getSignInKey() {
         byte[] keyBytes = Decoders.BASE64.decode(jwtSecretString);
         return Keys.hmacShaKeyFor(keyBytes);
-
     }
+
     public String getEmailFromToken(String token){
         Claims claims = Jwts.parser()
                 .verifyWith(getSignInKey())
