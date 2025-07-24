@@ -1,5 +1,5 @@
 <script setup>
-import {ref, watch} from 'vue';
+import {ref} from 'vue'; // watch здесь больше не нужен для тайлов, но оставим для других целей
 import {useGameStore} from '@/stores/game.js';
 import {useAuthStore} from '@/stores/auth.js';
 import AppModal from '@/components/shared/AppModal.vue';
@@ -12,72 +12,37 @@ const authStore = useAuthStore();
 const CELL_SIZE = 85;
 const isLeaveModalVisible = ref(false);
 
-const pendingShift = ref(null);
-const localExtraTile = ref(null);
-const isDraggingTile = ref(false);
+// -----------------------------------------------------------------
+// ВСЯ ЛОГИКА УПРАВЛЕНИЯ ТАЙЛАМИ И ПРЕДПРОСМОТРОМ УДАЛЕНА ОТСЮДА!
+// -----------------------------------------------------------------
 
-watch(() => gameStore.game?.board?.extraTile, (newTile) => {
-  if (localExtraTile.value || pendingShift.value) {
+// Обработчик перетаскивания лишнего тайла
+function handleDragStart(event) {
+
+  const tile = gameStore.displayableExtraTile;
+  if (!tile) {
+    event.preventDefault();
     return;
   }
-  if (newTile) {
-    localExtraTile.value = { ...newTile };
-  }
-}, { immediate: true, deep: true });
-
-function handleDragStart(event) {
-  if (!localExtraTile.value) return;
-  isDraggingTile.value = true;
-  event.dataTransfer.setData('application/json', JSON.stringify(localExtraTile.value));
+  event.dataTransfer.setData('application/json', JSON.stringify(tile));
   event.dataTransfer.effectAllowed = 'move';
 }
 
-function rotateExtraTile() {
-  if (localExtraTile.value) {
-    localExtraTile.value.orientation = (localExtraTile.value.orientation + 1) % 4;
-  }
+function handleTileDrop(shiftInfo) {
+  // Просто вызываем экшен в сторе
+  gameStore.setPendingShift(shiftInfo);
 }
 
-function handleDragEnd() {
-  isDraggingTile.value = false;
-}
-
-function handleTileDrop(shiftInfo, droppedTile) {
-  if (pendingShift.value) {
-    localExtraTile.value = pendingShift.value.tile;
-  } else {
-    localExtraTile.value = null;
-  }
-  pendingShift.value = {shiftInfo, tile: droppedTile};
-}
-
-function handlePickupTile(shiftInfo) {
-  if (pendingShift.value?.shiftInfo.key === shiftInfo.key) {
-    const currentOrientation = pendingShift.value.tile.orientation;
-    pendingShift.value.tile.orientation = (currentOrientation + 1) % 4;
-  }
-}
-
+// Функции для кнопок подтверждения
 function confirmShift() {
-  if (!pendingShift.value) return;
-  const {direction, index} = pendingShift.value.shiftInfo;
-  const {orientation} = pendingShift.value.tile;
-  gameStore.shiftTile(direction, index, orientation);
-  pendingShift.value = null;
-  localExtraTile.value = null;
+  gameStore.confirmShift();
 }
 
 function cancelShift() {
-  if (pendingShift.value) {
-    localExtraTile.value = pendingShift.value.tile;
-  }
-  pendingShift.value = null;
+  gameStore.clearPendingShift();
 }
 
-function confirmLeaveRoom() {
-  gameStore.leaveRoom();
-}
-
+// --- Вспомогательные функции
 function getAvatarColor(avatarType) {
   const colors = {'KNIGHT': '#8a94a1', 'MAGE': '#7a5b9e', 'ARCHER': '#5a8d5c', 'DWARF': '#c56b3e'};
   return colors[avatarType] || '#6c757d';
@@ -92,6 +57,12 @@ function formattedPhase(phase) {
   };
   return phases[phase] || phase;
 }
+
+function confirmLeaveRoom() {
+  gameStore.leaveRoom();
+  isLeaveModalVisible.value = false;
+}
+
 </script>
 
 <template>
@@ -103,6 +74,7 @@ function formattedPhase(phase) {
 
     <div class="game-container">
       <div class="game-panel left-panel">
+        <!-- Блок информации о ходе  -->
         <div class="info-block">
           <h4>Информация о ходе</h4>
           <div class="info-item">
@@ -115,6 +87,7 @@ function formattedPhase(phase) {
           </div>
         </div>
 
+        <!-- Панель игроков  -->
         <div class="players-panel">
           <h4>Игроки</h4>
           <div class="player-list">
@@ -134,24 +107,24 @@ function formattedPhase(phase) {
           </div>
         </div>
 
+        <!-- Панель лишнего тайла  -->
         <div class="tile-panel">
           <h4>Лишний тайл</h4>
-          <div class="extra-tile-preview" v-if="localExtraTile">
+          <div class="extra-tile-preview" v-if="gameStore.displayableExtraTile">
             <div
                 class="tile-draggable-wrapper"
-                :class="{ 'is-dragging': isDraggingTile }"
                 draggable="true"
                 @dragstart="handleDragStart"
-                @dragend="handleDragEnd"
-                @click="rotateExtraTile"
             >
-              <TilePiece :tile="localExtraTile"/>
+              <!-- Передаем тайл напрямую из геттера -->
+              <TilePiece :tile="gameStore.displayableExtraTile"/>
             </div>
           </div>
           <div v-else class="extra-tile-placeholder">(Пусто)</div>
         </div>
 
-        <div v-if="pendingShift" class="confirm-turn-panel">
+        <!-- Панель подтверждения хода -->
+        <div v-if="gameStore.pendingShift" class="confirm-turn-panel">
           <p>Поверните тайл или подтвердите ход.</p>
           <div class="confirm-buttons">
             <button @click="confirmShift" class="btn-confirm">Подтвердить</button>
@@ -161,21 +134,20 @@ function formattedPhase(phase) {
       </div>
 
       <div class="game-board-wrapper">
-
+        <!-- Компонент доски теперь получает данные из новых геттеров -->
         <GameBoard
             v-if="gameStore.game.board && gameStore.game.players"
-            :board="gameStore.game.board"
+            :grid="gameStore.gridForDisplay"
+            :board-size="gameStore.game.board.size"
             :players="gameStore.game.players"
-            :pending-shift="pendingShift"
+            :pending-shift="gameStore.pendingShift"
             :cell-size="CELL_SIZE"
             @drop-tile="handleTileDrop"
-            @pickup-tile="handlePickupTile"
         />
         <div v-else class="waiting-for-start">
           <h3>Ожидание начала игры...</h3>
           <p>Генерация игрового поля.</p>
         </div>
-
       </div>
 
       <AppModal
@@ -191,18 +163,17 @@ function formattedPhase(phase) {
       </AppModal>
     </div>
   </div>
-    <div v-else class="loading-state">
-      <h2>Загрузка данных игры...</h2>
-    </div>
+  <div v-else class="loading-state">
+    <h2>Загрузка данных игры...</h2>
+  </div>
 </template>
 
 <style scoped>
-/* Здесь ваш полный CSS для GameView, который мы уже писали */
+
 .game-layout {
-  width: 100%;
-  height: 100%;
   display: flex;
   flex-direction: column;
+  height: 100%;
 }
 
 .game-header {
@@ -210,83 +181,42 @@ function formattedPhase(phase) {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #eee;
-  flex-shrink: 0;
 }
 
 .game-container {
-  display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 280px;
-  gap: 30px;
-  align-items: flex-start;
+  display: flex;
+  gap: 20px;
   flex-grow: 1;
 }
 
-.game-panel {
-  background-color: rgba(248, 249, 250, 0.8);
-  padding: 20px;
-  border-radius: 8px;
-  border: 1px solid #dee2e6;
-  backdrop-filter: blur(3px);
+.left-panel {
+  width: 280px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
-.game-panel h4 {
-  margin: 0;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #ddd;
-}
-
-.game-board-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding-top: 40px;
-}
-
-.loading-state {
-  text-align: center;
-  padding: 50px;
-  font-size: 1.5em;
-  color: #666;
-}
-
-.info-block {
-  background-color: #fff;
-  padding: 15px;
+.info-block, .players-panel, .tile-panel, .confirm-turn-panel {
+  background-color: #f8f9fa;
   border-radius: 8px;
-}
-
-.info-block h4 {
-  margin-top: 0;
-  margin-bottom: 15px;
-  font-size: 1.1em;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #eee;
+  padding: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .info-item {
   display: flex;
   justify-content: space-between;
   margin-bottom: 8px;
-  font-size: 0.95em;
 }
 
 .info-label {
   font-weight: bold;
-  color: #333;
+  color: #495057;
 }
 
 .info-value {
-  color: #666;
-}
-
-.players-panel, .tile-panel {
-  border-top: 1px solid #ddd;
-  padding-top: 15px;
+  color: #212529;
 }
 
 .player-list {
@@ -298,20 +228,20 @@ function formattedPhase(phase) {
 .player-card {
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 10px;
-  border-radius: 8px;
-  background-color: #fff;
-  transition: all 0.2s ease;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 6px;
   border: 2px solid transparent;
+  transition: all 0.2s;
 }
 
 .player-card.is-current-player {
-  border-color: #ffc107;
+  border-color: #007bff;
+  background-color: #e7f3ff;
 }
 
 .player-card.is-disconnected {
-  opacity: 0.5;
+  opacity: 0.6;
 }
 
 .player-avatar {
@@ -324,7 +254,6 @@ function formattedPhase(phase) {
   justify-content: center;
   font-weight: bold;
   font-size: 1.2em;
-  flex-shrink: 0;
 }
 
 .player-info {
@@ -333,112 +262,105 @@ function formattedPhase(phase) {
 
 .player-name {
   margin: 0;
-  font-size: 1.1em;
+  font-size: 1em;
 }
 
 .player-score {
   margin: 0;
-  color: #6c757d;
   font-size: 0.9em;
+  color: #6c757d;
 }
 
 .extra-tile-preview {
-  width: 70px;
-  height: 70px;
-  margin: 10px auto;
-  border: 2px dashed #ccc;
-  padding: 2px;
-  box-sizing: border-box;
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
+  min-height: 100px;
+  padding: 10px;
 }
 
 .tile-draggable-wrapper {
-  width: 100%;
-  height: 100%;
+  width: 85px;
+  height: 85px;
   cursor: grab;
 }
 
-.tile-draggable-wrapper.is-dragging {
-  opacity: 0.5;
+.tile-draggable-wrapper:active {
   cursor: grabbing;
 }
 
 .extra-tile-placeholder {
   text-align: center;
-  color: #999;
-  margin-top: 10px;
-  height: 74px;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.confirm-turn-panel p {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.confirm-buttons {
+  display: flex;
+  justify-content: space-around;
+}
+
+.btn-confirm {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.btn-cancel {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.game-board-wrapper {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .waiting-for-start {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   text-align: center;
-  padding: 40px;
-  background-color: #f8f9fa;
-  border-radius: 8px;
-  color: #6c757d;
-  width: 100%;
-  min-height: 300px;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 50px;
 }
 
 .modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 25px;
+  margin-top: 20px;
 }
 
 .btn-danger {
   background-color: #dc3545;
   color: white;
-  padding: 10px 20px;
   border: none;
-  border-radius: 6px;
+  padding: 10px 20px;
+  border-radius: 5px;
   cursor: pointer;
 }
 
 .btn-secondary {
-  padding: 8px 16px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  background-color: #f0f0f0;
-  cursor: pointer;
-}
-
-.confirm-turn-panel {
-  margin-top: 15px;
-  padding: 15px;
-  background-color: #e9ecef;
-  border-radius: 8px;
-  text-align: center;
-}
-
-.confirm-buttons {
-  margin-top: 10px;
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-}
-
-.btn-confirm {
-  background-color: #28a745;
-  color: white;
-}
-
-.btn-cancel {
   background-color: #6c757d;
   color: white;
-}
-
-.btn-confirm, .btn-cancel {
-  padding: 10px 20px;
   border: none;
-  border-radius: 6px;
+  padding: 10px 20px;
+  border-radius: 5px;
   cursor: pointer;
 }
 </style>
