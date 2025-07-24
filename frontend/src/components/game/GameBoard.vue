@@ -1,10 +1,11 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useGameStore } from '@/stores/game.js';
 import { useAuthStore } from '@/stores/auth.js';
 import BoardCell from '@/components/game/BoardCell.vue';
 import PlayerPiece from '@/components/game/PlayerPiece.vue';
 import DropZone from '@/components/game/DropZone.vue';
+import TilePiece from '@/components/game/TilePiece.vue';
 
 const props = defineProps({
   grid: { type: Array, required: true },
@@ -33,7 +34,6 @@ const fullAreaStyle = computed(() => {
 
 
 const groupedPlayers = computed(() => {
-  // ... (эта логика остается без изменений)
   const playersByPosition = props.players.reduce((acc, player) => {
     const key = `${player.currentX}-${player.currentY}`;
     if (!acc[key]) acc[key] = [];
@@ -45,7 +45,6 @@ const groupedPlayers = computed(() => {
   );
 });
 
-// Данные для генерации DropZone'ов
 const dropZonesData = computed(() => {
   const zones = [];
   for (let i = 1; i < props.boardSize; i += 2) {
@@ -84,19 +83,86 @@ function handleZoneClick(shiftInfo) {
     }
   }
 }
+const isShifting = ref(false);
+
+watch(() => props.pendingShift, (newShift) => {
+  isShifting.value = !!newShift;
+});
+
+const boardClasses = computed(() => ({
+  'is-shifting': isShifting.value,
+}));
+
+// Вычисляем стили для "въезжающего" тайла
+const incomingTileStyle = computed(() => {
+  if (!props.pendingShift) return { display: 'none' };
+
+  const { direction, index } = props.pendingShift.shiftInfo;
+  const cellSize = props.cellSize;
+
+  const styles = {
+    position: 'absolute',
+    width: `${cellSize}px`,
+    height: `${cellSize}px`,
+    transition: 'transform 0.4s ease-in-out'
+  };
+
+  if (direction === 'SOUTH') {
+    styles.top = `-${cellSize}px`;
+    styles.left = `${index * cellSize}px`;
+    if (isShifting.value) styles.transform = `translateY(${cellSize}px)`;
+  }
+  if (direction === 'NORTH') {
+    styles.bottom = `-${cellSize}px`;
+    styles.left = `${index * cellSize}px`;
+    if (isShifting.value) styles.transform = `translateY(-${cellSize}px)`;
+  }
+  if (direction === 'EAST') {
+    styles.left = `-${cellSize}px`;
+    styles.top = `${index * cellSize}px`;
+    if (isShifting.value) styles.transform = `translateX(${cellSize}px)`;
+  }
+  if (direction === 'WEST') {
+    styles.right = `-${cellSize}px`;
+    styles.top = `${index * cellSize}px`;
+    if (isShifting.value) styles.transform = `translateX(-${cellSize}px)`;
+  }
+
+  return styles;
+});
+
+
+function getCellTransform(cell) {
+  if (!isShifting.value) return {};
+
+  const { direction, index } = props.pendingShift.shiftInfo;
+
+  if (direction === 'SOUTH' && cell.x === index) return { transform: 'translateY(100%)' };
+  if (direction === 'NORTH' && cell.x === index) return { transform: 'translateY(-100%)' };
+  if (direction === 'EAST' && cell.y === index) return { transform: 'translateX(100%)' };
+  if (direction === 'WEST' && cell.y === index) return { transform: 'translateX(-100%)' };
+
+  return {};
+}
+
 
 </script>
 
 <template>
   <div v-if="props.grid.length" class="full-board-area" :style="fullAreaStyle">
     <!-- Игровая доска -->
-    <div class="game-board">
+    <div class="game-board":class="boardClasses">
       <!-- Просто рендерим ячейки из пропса `grid` -->
       <BoardCell
-          v-for="(cell, index) in props.grid.flat()"
-          :key="`cell-${index}`"
+          v-for="cell in props.grid.flat()"
+          :key="`cell-${cell.x}-${cell.y}`"
           :cell="cell"
+          :style="getCellTransform(cell)"
       />
+
+      <div v-if="props.pendingShift" class="incoming-tile" :style="incomingTileStyle">
+        <TilePiece :tile="props.pendingShift.tile" />
+      </div>
       <!-- Оверлей с фишками игроков -->
       <div class="pieces-overlay">
         <PlayerPiece v-for="player in groupedPlayers" :key="`player-${player.id}`" :player="player"
@@ -159,5 +225,11 @@ function handleZoneClick(shiftInfo) {
 }
 .loading-placeholder {
   color: #6c757d;
+}
+.cell {
+  transition: transform 0.4s ease-in-out;
+}
+.incoming-tile {
+  /* Стили задаются через JS */
 }
 </style>

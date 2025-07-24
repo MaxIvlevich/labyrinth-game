@@ -137,7 +137,7 @@ function confirmLeaveRoom() {
         <!-- Компонент доски теперь получает данные из новых геттеров -->
         <GameBoard
             v-if="gameStore.game.board && gameStore.game.players"
-            :grid="gameStore.gridForDisplay"
+            :grid="gameStore.game.board.grid"
             :board-size="gameStore.game.board.size"
             :players="gameStore.game.players"
             :pending-shift="gameStore.pendingShift"
