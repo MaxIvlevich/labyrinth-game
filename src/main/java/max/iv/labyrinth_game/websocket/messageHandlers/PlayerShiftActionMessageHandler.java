@@ -95,7 +95,8 @@ public class PlayerShiftActionMessageHandler implements WebSocketMessageHandler{
             // 2. Создаем контекст для действия
             ShiftActionContext context = new ShiftActionContext(room, playerId,
                     request.getShiftIndex(),
-                    request.getShiftDirection());
+                    request.getShiftDirection(),
+                    request.getNewOrientation());
             // Вызываем GameService для выполнения сдвига
             actionDispatcher.dispatchShiftAction(context);
 

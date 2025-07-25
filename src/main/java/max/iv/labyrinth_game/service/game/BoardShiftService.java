@@ -12,26 +12,27 @@ import java.util.List;
 @Service
 public class BoardShiftService {
 
-    public void shiftBoard(Board board, int shiftIndex, Direction direction, List<Player> playersInGame) {
+    public void shiftBoard(Board board, int shiftIndex, Direction direction, List<Player> playersInGame,int newOrientation) {
         if (shiftIndex % 2 == 0 || shiftIndex < 0 || shiftIndex >= board.getSize()) {
             log.warn("Attempted to shift invalid row/column index: {}. Index must be odd and within board bounds.", shiftIndex);
             throw new IllegalArgumentException("Cannot shift stationary row or column (index must be odd).");
         }
         if (direction == Direction.NORTH || direction == Direction.SOUTH) {
-            shiftColumn(board, shiftIndex, direction,playersInGame);
+            shiftColumn(board, shiftIndex, direction,playersInGame, newOrientation);
         } else if (direction == Direction.EAST || direction == Direction.WEST) {
-            shiftRow(board, shiftIndex, direction,playersInGame);
+            shiftRow(board, shiftIndex, direction,playersInGame, newOrientation);
         } else {
             log.error("Invalid shift direction provided: {}", direction);
             throw new IllegalArgumentException("Invalid shift direction: " + direction);
         }
     }
 
-    private void shiftRow(Board board, int rowIndex, Direction direction,List<Player> playersInGame) {
+    private void shiftRow(Board board, int rowIndex, Direction direction,List<Player> playersInGame,int newOrientation) {
         log.debug("Shifting row {} {} with players.", rowIndex, direction);
         Tile[] row = getLineTiles(board, true, rowIndex);
         int boardSize = board.getSize();
         Tile tempExtra = board.getExtraTile();
+        tempExtra.setOrientation(newOrientation);
         Tile outgoing;
         if (direction == Direction.EAST) {
            outgoing = row[board.getSize() - 1];
@@ -54,11 +55,12 @@ public class BoardShiftService {
         board.setExtraTile(outgoing);
     }
 
-    private void shiftColumn(Board board, int columnIndex, Direction direction,List<Player> playersInGame) {
+    private void shiftColumn(Board board, int columnIndex, Direction direction,List<Player> playersInGame, int newOrientation) {
         log.debug("Shifting column {} {}", columnIndex, direction);
         int boardSize = board.getSize();
         Tile[] column = getLineTiles(board, false, columnIndex);
         Tile tempExtra = board.getExtraTile();
+        tempExtra.setOrientation(newOrientation);
         Tile outgoing;
 
         if (direction == Direction.SOUTH) {

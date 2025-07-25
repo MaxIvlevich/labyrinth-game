@@ -21,11 +21,14 @@ public class PlayerShiftActionRequest extends BaseMessage {
 
     @NotNull(message = "Shift direction cannot be null")
     private Direction shiftDirection;
+    @NotNull(message = "Shift orientation cannot be null")
+    private  int newOrientation;
 
-    public PlayerShiftActionRequest(String roomId, int shiftIndex, Direction shiftDirection) {
+    public PlayerShiftActionRequest(String roomId, int shiftIndex, Direction shiftDirection,int newOrientation) {
         super(GameMessageType.PLAYER_ACTION_SHIFT);
         this.roomId = roomId;
         this.shiftIndex = shiftIndex;
         this.shiftDirection = shiftDirection;
+        this.newOrientation = newOrientation;
     }
 }

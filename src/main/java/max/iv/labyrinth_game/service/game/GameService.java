@@ -36,8 +36,8 @@ public class GameService {
     private final BoardSetupService boardSetupService;
     private final GameValidator gameValidator;
     private final BoardShiftService boardShiftService;
-    
-    
+
+
     private final Random random = new Random();
 
     private final List<PlayerAvatar> avatars = PlayerAvatar.getAllAvatars();
@@ -53,16 +53,16 @@ public class GameService {
     }
 
     // @PostConstruct
-            // private void initializeActionHandlers() {
-        //     shiftActionHandlers = new EnumMap<>(GamePhase.class);
-        //     shiftActionHandlers.put(GamePhase.PLAYER_SHIFT, GameService::handleShiftInShiftPhaseLogic);
-        //     shiftActionHandlers.put(GamePhase.PLAYER_MOVE, (ctx, service) -> {
-            //         log.warn("Attempted SHIFT action in {} phase for room {}", ctx.getRoom().getGamePhase(), ctx.getRoom().getRoomId());
-            //         throw new IllegalStateException("Cannot perform shift action in phase: " + ctx.getRoom().getGamePhase());
-            //     });
-        //     moveActionHandlers = new EnumMap<>(GamePhase.class);
-        //     moveActionHandlers.put(GamePhase.PLAYER_MOVE, GameService::handleMoveInMovePhaseLogic);
-        // }
+    // private void initializeActionHandlers() {
+    //     shiftActionHandlers = new EnumMap<>(GamePhase.class);
+    //     shiftActionHandlers.put(GamePhase.PLAYER_SHIFT, GameService::handleShiftInShiftPhaseLogic);
+    //     shiftActionHandlers.put(GamePhase.PLAYER_MOVE, (ctx, service) -> {
+    //         log.warn("Attempted SHIFT action in {} phase for room {}", ctx.getRoom().getGamePhase(), ctx.getRoom().getRoomId());
+    //         throw new IllegalStateException("Cannot perform shift action in phase: " + ctx.getRoom().getGamePhase());
+    //     });
+    //     moveActionHandlers = new EnumMap<>(GamePhase.class);
+    //     moveActionHandlers.put(GamePhase.PLAYER_MOVE, GameService::handleMoveInMovePhaseLogic);
+    // }
 
     public GameRoom startGame(String roomId) {
         log.info("startGame started");
@@ -78,7 +78,7 @@ public class GameService {
         return room;
     }
 
-    public void  performShiftAction(ShiftActionContext context) {
+    public void performShiftAction(ShiftActionContext context) {
         GameRoom gameRoom = context.getRoom();
         Player currentPlayer = gameRoom.getCurrentPlayer();
         gameValidator.validatePlayerTurn(gameRoom, context.getPlayerId());
@@ -89,8 +89,11 @@ public class GameService {
         // 3. Выполняем основную логику сдвига
         try {
             // Делегируем сдвиг доски специализированному сервису
-            boardShiftService.shiftBoard(gameRoom.getBoard(), context.getShiftIndex(),
-                    context.getShiftDirection(), gameRoom.getPlayers());
+            boardShiftService.shiftBoard(gameRoom.getBoard(),
+                    context.getShiftIndex(),
+                    context.getShiftDirection(),
+                    gameRoom.getPlayers(),
+                    context.getNewOrientation());
         } catch (IllegalArgumentException e) {
             // Если boardShiftService обнаружил невалидные данные, "заворачиваем" ошибку
             throw new GameLogicException(e.getMessage(), ErrorType.INVALID_SHIFT);
@@ -117,7 +120,7 @@ public class GameService {
             // Проверяем, можно ли дойти до этой клетки
             if (!canMoveTo(board, currentPlayer, targetX, targetY)) {
                 log.warn("Player {} cannot move from ({},{}) to ({},{}). Path not found.",
-                        currentPlayer.getName(),  currentPlayer.getCurrentX(), currentPlayer.getCurrentY(),
+                        currentPlayer.getName(), currentPlayer.getCurrentX(), currentPlayer.getCurrentY(),
                         targetX, targetY);
                 // Бросаем наше кастомное исключение с кодом ошибки
                 throw new GameLogicException("Cannot move to the specified cell. No valid path.", ErrorType.INVALID_MOVE);
@@ -128,7 +131,7 @@ public class GameService {
             collectMarkerIfPresent(board, currentPlayer);
         } else {
             log.info("Player {} chose not to move (stayed at ({},{})) in room {}",
-                    currentPlayer.getName(),  currentPlayer.getCurrentX(), currentPlayer.getCurrentY(), room.getRoomId());
+                    currentPlayer.getName(), currentPlayer.getCurrentX(), currentPlayer.getCurrentY(), room.getRoomId());
         }
 
         // 4. Проверяем, не победил ли игрок
@@ -229,7 +232,7 @@ public class GameService {
                 nextPlayerIndex);
     }
 
-    public  GameRoom addPlayerToRoom(String roomId, Player newPlayer) {
+    public GameRoom addPlayerToRoom(String roomId, Player newPlayer) {
         GameRoom room = roomService.getRoom(roomId);
         gameValidator.validateRoomForJoin(room);
         UUID newPlayerId = newPlayer.getId();
@@ -292,7 +295,7 @@ public class GameService {
         return room;
     }
 
-    public void  handlePlayerDisconnect(UUID disconnectedPlayerId, String roomId) {
+    public void handlePlayerDisconnect(UUID disconnectedPlayerId, String roomId) {
         log.info("handlePlayerDisconnect Player id  {}  room {}.", disconnectedPlayerId, roomId);
 
         GameRoom room = roomService.getRoom(roomId);
@@ -336,6 +339,7 @@ public class GameService {
         }
         return false;
     }
+
     private void checkAndHandleGameEndConditions(GameRoom room) {
         if (room.getGamePhase() == GamePhase.WAITING_FOR_PLAYERS) {
             return; // Никогда не завершаем игру в фазе ожидания
@@ -365,7 +369,7 @@ public class GameService {
         }
         boolean allPlayersDisconnected = room.getPlayers().stream()
                 .allMatch(p -> p.getStatus() == PlayerStatus.DISCONNECTED);
-        if(allPlayersDisconnected) {
+        if (allPlayersDisconnected) {
             log.info("All players in room {} are disconnected. Marking game as over.", room.getRoomId());
             room.setGamePhase(GamePhase.GAME_OVER);
         }
@@ -381,7 +385,7 @@ public class GameService {
         }
     }
 
-    public boolean  removePlayerFromRoom(UUID playerId, String roomId) {
+    public boolean removePlayerFromRoom(UUID playerId, String roomId) {
         GameRoom room = roomService.getRoom(roomId);
         if (room == null) return false;
 
@@ -428,6 +432,7 @@ public class GameService {
 
         return false;
     }
+
     private record Point(int x, int y) {
     }
 }

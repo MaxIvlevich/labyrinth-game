@@ -9,9 +9,11 @@ import java.util.UUID;
 public class ShiftActionContext extends ActionContext{
     private final int shiftIndex;
     private final Direction shiftDirection;
-    public ShiftActionContext(GameRoom room, UUID playerId, int shiftIndex, Direction shiftDirection) {
+    private final int newOrientation;
+    public ShiftActionContext(GameRoom room, UUID playerId, int shiftIndex, Direction shiftDirection, int newOrientation) {
         super(room, playerId);
         this.shiftIndex = shiftIndex;
         this.shiftDirection = shiftDirection;
+        this.newOrientation = newOrientation;
     }
 }
