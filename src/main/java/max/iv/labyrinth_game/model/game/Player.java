@@ -52,6 +52,20 @@ public class Player {
         }
     }
 
+    public Integer getCurrentTargetMarkerId() {
+        if (this.targetMarkerIds == null || this.targetMarkerIds.isEmpty()) {
+            return null;
+        }
+
+        // Возвращаем первый ID из сета целей, который еще не в сете собранных.
+        // stream().findFirst() вернет первый попавшийся, порядок не гарантирован для HashSet,
+        // но для нашей задачи это не критично.
+        return this.targetMarkerIds.stream()
+                .filter(targetId -> !this.collectedMarkerIds.contains(targetId))
+                .findFirst()
+                .orElse(null); // Возвращаем null, если все цели уже собраны
+    }
+
     public boolean hasCollectedAllTargetMarkers() {
         if (targetMarkerIds == null || targetMarkerIds.isEmpty()) {
             return false;

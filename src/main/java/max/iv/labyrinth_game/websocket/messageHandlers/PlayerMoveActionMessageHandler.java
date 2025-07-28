@@ -106,7 +106,7 @@ public class PlayerMoveActionMessageHandler implements WebSocketMessageHandler{
             eventPublisher.publishEvent(new RoomStateNeedsBroadcastEvent(this, roomIdFromSession));
 
             // 3. Рассылаем обновленное состояние игры всем в комнате
-            gameStateBroadcaster.broadcastGameStateToRoom(request.getRoomId());
+            gameStateBroadcaster.broadcastPersonalizedState(request.getRoomId());
 
             log.info("Player {} successfully performed MOVE in room {}.", playerId, request.getRoomId());
             // 4. Проверяем, не закончилась ли игра после хода

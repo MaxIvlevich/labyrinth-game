@@ -101,7 +101,7 @@ public class PlayerShiftActionMessageHandler implements WebSocketMessageHandler{
             actionDispatcher.dispatchShiftAction(context);
 
             // Рассылаем обновленное состояние игры всем в комнате
-            gameStateBroadcaster.broadcastGameStateToRoom(request.getRoomId());
+            gameStateBroadcaster.broadcastPersonalizedState(request.getRoomId());
 
             log.info("Player {} successfully performed SHIFT in room {}.", playerId, request.getRoomId());
 

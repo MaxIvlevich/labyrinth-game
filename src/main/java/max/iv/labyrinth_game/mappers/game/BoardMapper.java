@@ -4,6 +4,7 @@ import max.iv.labyrinth_game.dto.geme.BoardDTO;
 import max.iv.labyrinth_game.dto.geme.CellDTO;
 import max.iv.labyrinth_game.dto.geme.TileDTO;
 import max.iv.labyrinth_game.model.game.Board;
+import max.iv.labyrinth_game.model.game.Player;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -21,7 +22,7 @@ public class BoardMapper {
         this.cellMapper = cellMapper;
         this.tileMapper = tileMapper;
     }
-    public BoardDTO toDto(Board board) {
+    public BoardDTO toDto(Board board, Player targetPlayer) {
         if (board == null) {
             return null;
         }
@@ -31,7 +32,7 @@ public class BoardMapper {
             List<CellDTO> rowDto = new ArrayList<>();
             for (int x = 0; x < board.getSize(); x++) {
                 // Используем cellMapper для конвертации каждой ячейки
-                rowDto.add(cellMapper.toDto(board.getCell(x, y)));
+                rowDto.add(cellMapper.toDto(board.getCell(x, y),targetPlayer));
             }
             gridDto.add(rowDto);
         }

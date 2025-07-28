@@ -4,6 +4,7 @@ import max.iv.labyrinth_game.dto.geme.CellDTO;
 import max.iv.labyrinth_game.dto.geme.MarkerDTO;
 import max.iv.labyrinth_game.dto.geme.TileDTO;
 import max.iv.labyrinth_game.model.game.Cell;
+import max.iv.labyrinth_game.model.game.Player;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -19,21 +20,24 @@ public class CellMapper {
         this.markerMapper = markerMapper;
     }
 
-    public CellDTO toDto(Cell cell) {
+    public CellDTO toDto(Cell cell, Player targetPlayer) {
         if (cell == null) {
             return null;
         }
+        MarkerDTO markerDto = null;
 
         TileDTO tileDto = tileMapper.toDto(cell.getTile());
 
-        MarkerDTO activeMarkerDto = markerMapper.toDto(cell.getActiveMarker());
+        if (cell.getActiveMarker() != null && targetPlayer.getTargetMarkerIds().contains(cell.getActiveMarker().getId())) {
+            markerDto = markerMapper.toDto(cell.getActiveMarker());
+        }
 
         return new CellDTO(
                 cell.getX(),
                 cell.getY(),
                 cell.isStationary(),
                 tileDto,
-                activeMarkerDto
+                markerDto
         );
     }
 }

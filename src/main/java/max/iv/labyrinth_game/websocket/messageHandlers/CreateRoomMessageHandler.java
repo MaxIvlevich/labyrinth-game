@@ -108,7 +108,7 @@ public class CreateRoomMessageHandler implements WebSocketMessageHandler{
             sessionManager.sendMessageToSession(session, response, objectMapper);
             log.info("Sent RoomCreatedResponse to session {}", session.getId());
             // 6. Отправляем начальное состояние комнаты
-            gameStateBroadcaster.broadcastGameStateToRoom(roomWithCreator.getRoomId());
+            gameStateBroadcaster.broadcastPersonalizedState(roomWithCreator.getRoomId());
             // 7. Публикуем событие для обновления списка комнат в лобби
             log.debug("Publishing LobbyRoomListNeedsUpdateEvent after room creation: {}", roomId);
             eventPublisher.publishEvent(new LobbyRoomListNeedsUpdateEvent(this));

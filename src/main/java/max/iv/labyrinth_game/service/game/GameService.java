@@ -178,41 +178,12 @@ public class GameService {
             return false;
         }
         if (player.getCurrentX() == targetX && player.getCurrentY() == targetY) return true;
-        return findPathBfs(board, player.getCurrentX(), player.getCurrentY(), targetX, targetY);
+        Set<Point> reachableCells = findAllReachableCells(board, player.getCurrentX(), player.getCurrentY());
+
+        // Проверяем, содержится ли цель в этом множестве
+        return reachableCells.contains(new Point(targetX, targetY));
     }
 
-    private boolean findPathBfs(Board board, int startX, int startY, int targetX, int targetY) {
-        Queue<Point> queue = new LinkedList<>();
-        Set<Point> visited = new HashSet<>();
-        Point startPoint = new Point(startX, startY);
-        queue.offer(startPoint);
-        visited.add(startPoint);
-
-        while (!queue.isEmpty()) {
-            Point currentPoint = queue.poll();
-            Cell currentCell = board.getCell(currentPoint.x, currentPoint.y);
-            if (currentCell == null) continue;
-            if (currentPoint.x == targetX && currentPoint.y == targetY) return true;
-
-            for (Direction direction : Direction.values()) {
-                if (currentCell.connectsTo(direction)) {
-                    int nextX = currentPoint.x + direction.getDx();
-                    int nextY = currentPoint.y + direction.getDy();
-                    if (board.isValidCoordinate(nextX, nextY)) {
-                        Cell neighborCell = board.getCell(nextX, nextY);
-                        if (neighborCell != null && neighborCell.connectsTo(direction.opposite())) {
-                            Point neighborPoint = new Point(nextX, nextY);
-                            if (!visited.contains(neighborPoint)) {
-                                visited.add(neighborPoint);
-                                queue.offer(neighborPoint);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return false;
-    }
 
     private void endTurn(GameRoom room) {
         if (room.getPlayers().isEmpty()) {
@@ -433,7 +404,67 @@ public class GameService {
         return false;
     }
 
-    private record Point(int x, int y) {
+    /**
+     * Находит все достижимые клетки для игрока из начальной точки с помощью BFS.
+     * @param board Игровая доска.
+     * @param startX Начальная координата X.
+     * @param startY Начальная координата Y.
+     * @return Множество всех достижимых точек (Point).
+     */
+    public Set<Point> findAllReachableCells(Board board, int startX, int startY) {
+        Set<Point> visited = new HashSet<>();
+        if (board == null || !board.isValidCoordinate(startX, startY)) {
+            return visited;
+        }
+
+        Queue<Point> queue = new LinkedList<>();
+        Point startPoint = new Point(startX, startY);
+
+        queue.offer(startPoint);
+        visited.add(startPoint);
+
+        while (!queue.isEmpty()) {
+            Point currentPoint = queue.poll();
+
+            // Заменяем весь цикл на один вызов
+            processNeighbors(currentPoint, board, queue, visited);
+        }
+
+        return visited;
+    }
+
+    /**
+     * Обрабатывает всех валидных соседей для текущей точки в алгоритме BFS.
+     * @param currentPoint Текущая точка.
+     * @param board Игровая доска.
+     * @param queue Очередь для добавления новых точек.
+     * @param visited Множество для отметки посещенных точек.
+     */
+    private void processNeighbors(Point currentPoint, Board board, Queue<Point> queue, Set<Point> visited) {
+        Cell currentCell = board.getCell(currentPoint.x, currentPoint.y);
+        if (currentCell == null) {
+            return; // На всякий случай, если клетка невалидна
+        }
+
+        for (Direction direction : Direction.values()) {
+            if (currentCell.connectsTo(direction)) {
+                int nextX = currentPoint.x + direction.getDx();
+                int nextY = currentPoint.y + direction.getDy();
+
+                if (board.isValidCoordinate(nextX, nextY)) {
+                    Cell neighborCell = board.getCell(nextX, nextY);
+                    if (neighborCell != null && neighborCell.connectsTo(direction.opposite())) {
+                        Point neighborPoint = new Point(nextX, nextY);
+                        if (visited.add(neighborPoint)) {
+                            queue.offer(neighborPoint);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public record Point(int x, int y) {
     }
 }
 

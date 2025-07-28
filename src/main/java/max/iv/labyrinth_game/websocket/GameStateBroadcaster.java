@@ -2,9 +2,12 @@ package max.iv.labyrinth_game.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import max.iv.labyrinth_game.dto.geme.PointDTO;
 import max.iv.labyrinth_game.mappers.game.GameStateMapper;
 import max.iv.labyrinth_game.model.game.GameRoom;
 import max.iv.labyrinth_game.model.game.Player;
+import max.iv.labyrinth_game.model.game.enums.GamePhase;
+import max.iv.labyrinth_game.service.game.GameService;
 import max.iv.labyrinth_game.service.game.RoomService;
 import max.iv.labyrinth_game.websocket.dto.GameStateUpdateDTO;
 import max.iv.labyrinth_game.websocket.events.lobby.RoomStateNeedsBroadcastEvent;
@@ -15,11 +18,14 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
 public class GameStateBroadcaster {
     private final SessionManager sessionManager;
+    private final GameService gameService;
     private final RoomService roomService;
     private final ObjectMapper objectMapper;
     private final GameStateMapper gameStateMapper;
@@ -28,10 +34,12 @@ public class GameStateBroadcaster {
     public GameStateBroadcaster(SessionManager sessionManager,
                                 RoomService roomService,
                                 ObjectMapper objectMapper,
-            GameStateMapper gameStateMapper){
+                                GameStateMapper gameStateMapper,
+                                GameService gameService) {
         this.sessionManager = sessionManager;
         this.roomService = roomService;
         this.objectMapper = objectMapper;
+        this.gameService = gameService;
         this.gameStateMapper = gameStateMapper;
         log.info("GameStateBroadcaster initialized.");
     }
@@ -43,15 +51,16 @@ public class GameStateBroadcaster {
             return;
         }
         String roomId = event.getRoomId();
-        log.info("Event received: RoomStateNeedsBroadcastEvent for room {}. Broadcasting game state.", roomId);
+        log.info("Event received: RoomStateNeedsBroadcastEvent for room {}. Broadcasting personalized game state.", roomId);
         try {
-            broadcastGameStateToRoom(roomId);
+            // ВЫЗЫВАЕМ НАШ НОВЫЙ МЕТОД
+            broadcastPersonalizedState(roomId);
         } catch (Exception e) {
-            log.error("Error broadcasting game state for room {} in response to event: {}", roomId, e.getMessage(), e);
+            log.error("Error broadcasting personalized game state for room {} in response to event: {}", roomId, e.getMessage(), e);
         }
     }
 
-    public void broadcastGameStateToRoom(String roomId) {
+    public void broadcastPersonalizedState(String roomId) {
         if (roomId == null || roomId.isBlank()) {
             log.warn("Cannot broadcast game state: roomId is null or blank.");
             return;
@@ -63,30 +72,49 @@ public class GameStateBroadcaster {
         }
         if (room.getPlayers() == null || room.getPlayers().isEmpty()) {
             log.info("No players in room {} to broadcast game state to.", roomId);
-            //TODO
             return;
         }
-        GameStateUpdateDTO gameStateDto = gameStateMapper.toDto(room);
-        String jsonMessage;
-        try {
-            jsonMessage = objectMapper.writeValueAsString(gameStateDto);
-        } catch (IOException e) {
-            log.error("Error serializing game state for room {}: DTOClass={}, Error={}",
-                    roomId, gameStateDto.getClass().getSimpleName(), e.getMessage());
-            return;
+        log.info("Broadcasting personalized state for room {} to {} players.", roomId, room.getPlayers().size());
+
+        // 1. Вычисляем достижимые клетки ОДИН РАЗ (если нужно)
+        Set<GameService.Point> reachableCellsForCurrentPlayer = null;
+        if (room.getGamePhase() == GamePhase.PLAYER_MOVE && room.getCurrentPlayer() != null) {
+            Player currentPlayer = room.getCurrentPlayer();
+            reachableCellsForCurrentPlayer = gameService.findAllReachableCells(
+                    room.getBoard(),
+                    currentPlayer.getCurrentX(),
+                    currentPlayer.getCurrentY()
+            );
         }
 
-        log.info("Broadcasting game state for room {} to {} players.",
-                roomId, room.getPlayers().size());
-
-        // Шаг 2: Получение сессий игроков и отправка
+        // 2. Рассылаем состояние каждому игроку
         for (Player player : room.getPlayers()) {
             WebSocketSession playerSession = sessionManager.getSessionByPlayerId(player.getId());
-            if (playerSession != null) { // Отправляем только если сессия активна
+            if (playerSession == null) {
+                log.warn("No active session for player {}. Skipping broadcast for them.", player.getName());
+                continue;
+            }
+
+            // 3. Определяем, нужно ли отправлять `reachableCells` этому конкретному игроку
+            Set<GameService.Point> cellsForThisPlayer = player.equals(room.getCurrentPlayer())
+                    ? reachableCellsForCurrentPlayer
+                    : null;
+
+            // Конвертируем внутренние Point в PointDTO
+            Set<PointDTO> reachableCellsDto = (cellsForThisPlayer != null)
+                    ? cellsForThisPlayer.stream().map(p -> new PointDTO(p.x(), p.y())).collect(Collectors.toSet())
+                    : null;
+
+            // 4. Используем наш обновленный маппер для создания DTO
+            GameStateUpdateDTO dto = gameStateMapper.toDto(room, player, reachableCellsDto);
+
+            // 5. Сериализуем и отправляем сообщение
+            try {
+                String jsonMessage = objectMapper.writeValueAsString(dto);
                 sendMessageToSessionInternal(playerSession, jsonMessage);
-            } else {
-                log.warn("No active session found for player {} (ID: {}) in room {}. Cannot send game state update.",
-                        player.getName(), player.getId(), roomId);
+            } catch (IOException e) {
+                log.error("Error serializing personalized game state for player {} in room {}: {}",
+                        player.getName(), roomId, e.getMessage());
             }
         }
     }
